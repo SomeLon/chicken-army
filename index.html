@@ -137,8 +137,10 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .modal{position:fixed;inset:0;z-index:20;background:rgba(8,9,14,.72);display:flex;align-items:flex-end;justify-content:center;
   padding:calc(12px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
 @media (min-width:600px){.modal{align-items:center}}
-.sheet{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:100%;max-width:520px;max-height:100%;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:100%;max-width:520px;max-height:78%;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
 .sheet h2{margin:0;font-size:19px;font-weight:900;text-wrap:balance}
+.mhead{display:flex;justify-content:space-between;align-items:center;gap:10px;position:sticky;top:-16px;z-index:1;background:var(--panel);margin:-16px -16px 0;padding:14px 16px 10px;border-bottom:1px solid var(--line)}
+.mhead .btn{flex:none;padding:9px 18px;font-size:15px}
 .sheet h3{margin:0;font-size:13px;color:var(--mute);letter-spacing:.08em;font-weight:500}
 .seg{display:flex;background:var(--panel2);border-radius:10px;padding:3px;gap:3px}
 .seg button{flex:1;border:0;background:none;border-radius:8px;padding:7px 4px;font-weight:700;color:var(--mute)}
@@ -560,17 +562,23 @@ document.getElementById("rivals").addEventListener("click",e=>{ const b=e.target
   openModal(`<h2>${p.name}的軍團</h2><div class="stats">${statChips(pstats(p))}</div>
     <div style="display:flex;justify-content:center"><div class="grid" style="width:${r.w}px;height:${r.h}px;background-size:${cs}px ${cs}px;background-position:${cs/2}px ${cs/2}px">${r.html}</div></div>
     <div class="hint">顏色較暗的格子是沒有和同類小雞相鄰的，目前不計分。</div>
-    <button class="btn pri" type="button" data-close>關閉</button>`); });
+    <button class="btn pri" type="button" data-close>關閉</button>`,closeModal); });
 
 /* ---------- modals ---------- */
 const modal=document.getElementById("modal"), sheet=document.getElementById("sheet");
-function openModal(h){ sheet.innerHTML=h; modal.hidden=false; sheet.scrollTop=0; }
-function closeModal(){ modal.hidden=true; }
+let onOutside=null;
+function openModal(h,out){ sheet.innerHTML=h; modal.hidden=false; sheet.scrollTop=0; onOutside=out||null; }
+function closeModal(){ modal.hidden=true; onOutside=null; }
+modal.addEventListener("click",e=>{ if(e.target===modal&&onOutside) onOutside(); });
 sheet.addEventListener("click",e=>{ if(e.target.closest("[data-close]")) closeModal(); });
 
 function showCombat(){
   const C=S.combat; const N=id=>S.players[id];
-  let h=`<h2>第 ${S.round} 輪・戰鬥</h2><div class="cmb">`;
+  const al=alive(); const more=al.length>1&&!S.finalRound;
+  let h=`<div class="mhead"><h2>第 ${S.round} 輪・戰鬥</h2><button class="btn pri" type="button" id="bNext">${more?"下一輪":"看結果"}</button></div>
+   <div class="hint">點視窗外面也可以${more?"進入下一輪":"看結果"}${more?"・下一輪先手："+S.players[S.first].name:""}</div>`;
+  if(me().elim&&al.length>1) h+=`<div class="btnrow"><button class="btn" type="button" id="bFast">直接快轉到結束</button></div>`;
+  h+=`<div class="cmb">`;
   for(const aid of C.ids){ const a=N(aid);
     h+=`<div class="cmb-a"><div class="hd"><span class="ldot" style="background:${LEADERS[a.leader].color}"></span>${a.name}出擊</div>`;
     for(const r of C.rows.filter(r=>r.a===aid)){ const t=r.ph+r.mg;
@@ -580,19 +588,16 @@ function showCombat(){
   for(const id of C.ids){ const p=N(id); const hl=C.heal[id];
     h+=`<div><span>${p.name}</span><span>${C.before[id]} → ${C.afterHit[id]}${hl?` <span style="color:var(--ok)">+${hl}</span>`:""}${p.elim?' <b style="color:var(--bad)">出局</b>':` = <b>${p.life}</b>`}</span></div>`; }
   h+=`</div>`;
-  const al=alive();
-  const more=al.length>1&&!S.finalRound;
-  if(more) h+=`<div class="hint">下一輪先手：${S.players[S.first].name}</div>`;
-  h+=`<div class="btnrow"><button class="btn pri" type="button" id="bNext">${more?"下一輪":"看結果"}</button>${me().elim&&al.length>1?'<button class="btn" type="button" id="bFast">直接快轉到結束</button>':""}</div>`;
-  openModal(h);
-  document.getElementById("bNext").onclick=()=>{ closeModal(); startRound(); };
+  let done=false; const go=()=>{ if(done)return; done=true; closeModal(); startRound(); };
+  openModal(h,go);
+  document.getElementById("bNext").onclick=go;
   const bf=document.getElementById("bFast"); if(bf) bf.onclick=()=>{ S.fast=true; closeModal(); startRound(); };
 }
 function showOver(){ const w=S.players[S.winner.id];
   const rank=S.players.slice().sort((a,b)=>b.life-a.life);
-  openModal(`<h2>${w.id===0?"你贏了！":"這局由 "+w.name+" 獲勝"}</h2><div class="big">${w.name}</div><div class="hint">${S.winner.reason}・共 ${S.round} 輪</div>
+  openModal(`<div class="mhead"><h2>${w.id===0?"你贏了！":"這局由 "+w.name+" 獲勝"}</h2><button class="btn pri" type="button" id="bAgain">再來一局</button></div><div class="big">${w.name}</div><div class="hint">${S.winner.reason}・共 ${S.round} 輪</div>
    <div class="lifes">${rank.map(p=>`<div><span>${p.name}${p.elim?"（出局）":""}</span><b>${p.life}</b></div>`).join("")}</div>
-   <div class="btnrow"><button class="btn pri" type="button" id="bAgain">再來一局</button><button class="btn" type="button" data-close>看看棋盤</button></div>`);
+   <div class="hint">點視窗外面可以先看看棋盤，之後按右上角「新遊戲」再開一局。</div>`,closeModal);
   document.getElementById("bAgain").onclick=()=>showSetup(S.opts);
 }
 function showSetup(prev){
@@ -606,7 +611,7 @@ function showSetup(prev){
    <h3>變體規則</h3>
    <label class="chk"><input type="checkbox" id="vEach" ${o.each?"checked":""}><span>各有千雞<small>每人的起始卡翻到彼此不同的那一面。</small></span></label>
    <label class="chk"><input type="checkbox" id="vJedi" ${o.jedi?"checked":""}><span>絕地翻雞<small>生命低於 15 時領袖翻面，該領袖的小雞類型點數 +1；回到 15 以上就翻回。</small></span></label>
-   <div class="btnrow"><button class="btn pri" type="button" id="bStart">開始</button>${resumable?'<button class="btn" type="button" id="bResume">繼續上一局（第 '+saved.round+' 輪）</button>':""}</div>`);
+   <div class="btnrow"><button class="btn pri" type="button" id="bStart">開始</button>${resumable?'<button class="btn" type="button" id="bResume">繼續上一局（第 '+saved.round+' 輪）</button>':""}</div>`,(S&&S.round>0&&S.phase!=="over"&&S.phase!=="setup")?closeModal:null);
   sheet.querySelectorAll(".seg").forEach(sg=>sg.addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b)return;
     sg.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
     o[sg.dataset.g]=sg.dataset.g==="opp"?+b.dataset.v:b.dataset.v; }));
@@ -626,7 +631,7 @@ document.getElementById("bHelp").onclick=()=>{
    <p><b>重整</b>：生命 ≤ 0 出局。每瓶可見藥水回 1 點（上限 30）。先手順時針傳下去。</p>
    <p><b>結束</b>：只剩一人；或全部同時出局（最接近 0 的贏）；或牌不夠每人拿一張時，打完這最後一輪再比生命，最高的贏。平手由先手獲勝。</p></div>
    <div class="legend">${["PA1","MA1","PD1","MD1","CP","C2","X"].map(c=>`<div><span class="cell c-${P(c).t}">${cellInner(c,30)}</span>${{PA1:"物理攻擊",MA1:"魔法攻擊",PD1:"物理防禦",MD1:"魔法防禦",CP:"1 金幣 + 1 藥水",C2:"2 金幣",X:"空格"}[c]}</div>`).join("")}<div><span class="hint">● = 1 點，●● = 2 點</span></div></div>
-   <button class="btn pri" type="button" data-close>知道了</button>`); };
+   <button class="btn pri" type="button" data-close>知道了</button>`,closeModal); };
 window.addEventListener("resize",()=>{ if(S) renderAll(); });
 
 /* ---------- boot ---------- */
