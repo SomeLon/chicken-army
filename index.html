@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a1d2a">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}</style>
+<title>全軍出雞</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+<style>
+/* Layout: one-column war table — rivals across the top, the recruit line, your army board, and a placement tray docked at the bottom */
+:root{
+  --bg:#1a1d2a; --panel:#242838; --panel2:#2e3348; --line:#3d4462; --fg:#f0e9db; --mute:#a2a6ba;
+  --gold:#f2c14e; --ok:#62d08f; --bad:#f06b5c; --seam:#11131c;
+  --pa:#d8473b; --ma:#3a7fd5; --pd:#e3892b; --md:#8a5ccf; --cp:#2f9e83; --c2:#b88a1c; --x:#6b4c36;
+  --f-num:"Bungee","Noto Sans TC",system-ui,sans-serif;
+  --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  color-scheme:dark;
+}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--f-body);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px 0;
+  -webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.app{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:12px;padding-bottom:16px}
+
+/* header */
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+.brand h1{margin:0;font-size:22px;font-weight:900;letter-spacing:.06em;text-wrap:balance}
+.brand .rd{font-family:var(--f-num);font-size:13px;color:var(--gold);white-space:nowrap}
+.tbtns{display:flex;gap:6px}
+.ghostbtn{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:13px}
+
+/* rivals */
+.rivals{display:grid;grid-template-columns:repeat(var(--n,1),minmax(0,1fr));gap:6px}
+.rivals[data-n="3"] .rival{padding:6px}
+.rivals[data-n="3"] .st{font-size:11px;padding:0 4px 0 2px}
+.rivals[data-n="3"] .life{font-size:19px}
+.rivals:not([data-n="1"]) .vs{font-size:11px;line-height:1.35}
+.rivals:not([data-n="1"]) .st svg{width:12px;height:12px}
+.rboard{display:flex;justify-content:center;align-items:center;padding:2px 0;min-height:40px}
+.rboard .grid{border-radius:4px}
+.rival{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;text-align:left;display:flex;flex-direction:column;gap:5px;position:relative}
+.rival.act{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.rival.out{opacity:.45}
+.rhead{display:flex;align-items:center;gap:6px}
+.ldot{width:10px;height:10px;border-radius:50%;flex:none;box-shadow:0 0 0 2px var(--seam)}
+.rname{font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.life{font-family:var(--f-num);font-size:22px;line-height:1;font-variant-numeric:tabular-nums}
+.life.low{color:var(--bad)}
+.tags{display:flex;gap:4px;flex-wrap:wrap}
+.tag{font-size:11px;padding:0 6px;border-radius:99px;background:var(--panel2);color:var(--mute);letter-spacing:.04em}
+.tag.first{background:var(--gold);color:#2a1e00;font-weight:700}
+.tag.flip{background:var(--bad);color:#fff}
+.vs{font-size:12px;color:var(--mute)}
+.vs b{color:var(--fg);font-variant-numeric:tabular-nums}
+
+/* stat chips */
+.stats{display:flex;gap:4px;flex-wrap:wrap}
+.st{display:inline-flex;align-items:center;gap:2px;font-size:12px;font-variant-numeric:tabular-nums;padding:1px 6px 1px 3px;border-radius:6px;background:var(--panel2)}
+.st svg{flex:none}
+.st.pa{color:#ff9b90}.st.ma{color:#8fbcff}.st.pd{color:#ffbf7a}.st.md{color:#c9a8ff}.st.co{color:var(--gold)}.st.po{color:#7fe0c4}
+.st .d{font-size:11px;margin-left:2px}
+.st .d.up{color:var(--ok)}.st .d.dn{color:var(--bad)}
+
+/* recruit line */
+.sec-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12px;color:var(--mute);letter-spacing:.08em}
+.recruit{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;align-items:start}
+.slot{background:none;border:0;padding:0;display:flex;flex-direction:column;align-items:center;gap:4px}
+.slot:disabled{cursor:default}
+.slot .mini{width:100%;max-width:92px;aspect-ratio:1;border-radius:8px;overflow:hidden;box-shadow:0 2px 0 var(--seam);transition:transform .15s}
+.slot.can .mini{outline:2px solid transparent}
+.slot.can:hover .mini{transform:translateY(-2px)}
+.slot.picked .mini{outline:3px solid var(--gold);outline-offset:2px}
+.slot.lock .mini{filter:saturate(.6) brightness(.82)}
+.cost{font-size:11px;padding:0 7px;border-radius:99px;background:var(--panel2);color:var(--mute);white-space:nowrap}
+.slot.can .cost{background:var(--gold);color:#2a1e00;font-weight:700}
+.back{width:100%;height:100%;display:grid;place-items:center;background:repeating-linear-gradient(45deg,#3a2b4a 0 8px,#33263f 8px 16px);font-family:var(--f-num);font-size:18px;color:var(--gold)}
+.empty-slot{width:100%;height:100%;border:2px dashed var(--line);border-radius:8px}
+
+/* status */
+.status{background:var(--panel);border-radius:10px;padding:8px 12px;display:flex;flex-direction:column;gap:2px}
+.status .main{font-weight:700}
+.status .sub{font-size:12px;color:var(--mute)}
+
+/* my army */
+.mehead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mehead .rname{flex:none}
+#board{position:relative;width:100%;display:flex;justify-content:center;align-items:center;padding:6px 0;touch-action:auto;user-select:none;-webkit-user-select:none}
+#board.placing{touch-action:none}
+.grid{position:relative;border-radius:8px;
+  background-color:#202434;background-image:radial-gradient(circle,var(--line) 1.2px,transparent 1.3px)}
+.cell{position:absolute;box-sizing:border-box;border:0 solid var(--seam);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;gap:0}
+.cell.iso{filter:saturate(.35) brightness(.72)}
+.cell.last::after{content:"";position:absolute;inset:0;box-shadow:inset 0 0 0 2px rgba(255,255,255,.55);pointer-events:none}
+.c-PA{background:var(--pa)}.c-MA{background:var(--ma)}.c-PD{background:var(--pd)}.c-MD{background:var(--md)}
+.c-CP{background:var(--cp)}.c-C2{background:var(--c2)}.c-X{background:var(--x)}
+.pips{font-size:8px;line-height:1;letter-spacing:1px;opacity:.95;font-style:normal}
+.duo{display:flex;gap:1px}
+.ghost{position:absolute;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;border-radius:4px;opacity:.88;transition:left .08s,top .08s}
+.ghost .cell{position:relative;border-width:1px}
+.ghost.ok{box-shadow:0 0 0 3px var(--ok),0 6px 18px rgba(0,0,0,.5)}
+.ghost.no{box-shadow:0 0 0 3px var(--bad);opacity:.6}
+.mini-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;width:100%;height:100%}
+.mini-grid .cell{position:relative;border-width:1px}
+
+/* tray */
+.tray{position:sticky;bottom:0;z-index:5;margin-inline:calc(-1*max(16px,env(safe-area-inset-left,0px))) calc(-1*max(16px,env(safe-area-inset-right,0px)));
+  background:var(--panel);border-top:1px solid var(--line);box-shadow:0 -8px 24px rgba(0,0,0,.35);
+  padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.tray-in{max-width:720px;margin:0 auto;display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center}
+#preview{width:104px;height:104px;border-radius:10px;overflow:hidden;touch-action:none;cursor:grab;box-shadow:0 0 0 2px var(--gold);transition:transform .18s}
+.tray-r{display:flex;flex-direction:column;gap:8px;min-width:0}
+.fc{font-size:12px;color:var(--mute);display:flex;flex-direction:column;gap:3px}
+.fc b{color:var(--fg);font-variant-numeric:tabular-nums}
+.btnrow{display:flex;gap:6px;flex-wrap:wrap}
+.btn{border:0;border-radius:9px;padding:8px 12px;background:var(--panel2);font-weight:700;font-size:14px}
+.btn.pri{background:var(--gold);color:#2a1e00}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.rot{font-size:18px;padding:5px 12px;line-height:1}
+.hint{font-size:11px;color:var(--mute)}
+
+/* modal */
+.modal{position:fixed;inset:0;z-index:20;background:rgba(8,9,14,.72);display:flex;align-items:flex-end;justify-content:center;
+  padding:calc(12px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+@media (min-width:600px){.modal{align-items:center}}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:100%;max-width:520px;max-height:100%;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.sheet h2{margin:0;font-size:19px;font-weight:900;text-wrap:balance}
+.sheet h3{margin:0;font-size:13px;color:var(--mute);letter-spacing:.08em;font-weight:500}
+.seg{display:flex;background:var(--panel2);border-radius:10px;padding:3px;gap:3px}
+.seg button{flex:1;border:0;background:none;border-radius:8px;padding:7px 4px;font-weight:700;color:var(--mute)}
+.seg button.on{background:var(--gold);color:#2a1e00}
+.chk{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;background:var(--panel2);border-radius:10px}
+.chk input{margin-top:4px;accent-color:var(--gold);width:18px;height:18px}
+.chk small{display:block;color:var(--mute);font-size:12px}
+.cmb{display:flex;flex-direction:column;gap:8px}
+.cmb-a{background:var(--panel2);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:4px}
+.cmb-a .hd{display:flex;align-items:center;gap:6px;font-weight:700}
+.cmb-r{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--mute);font-variant-numeric:tabular-nums}
+.cmb-r b{color:var(--fg)}
+.cmb-r .hit{color:var(--bad);font-weight:700}
+.lifes{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px}
+.lifes div{background:var(--panel2);border-radius:8px;padding:6px 10px;font-size:13px;display:flex;justify-content:space-between;gap:6px;font-variant-numeric:tabular-nums}
+.big{font-family:var(--f-num);font-size:30px;color:var(--gold);line-height:1.1}
+.rules{font-size:13px;color:var(--fg)}
+.rules p{margin:0 0 8px}
+.legend{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.legend div{display:flex;align-items:center;gap:6px;font-size:12px}
+.legend .cell{position:relative;width:30px;height:30px;border-radius:4px;flex:none}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+</head>
+<body>
+<div class="app" id="app">
+  <div class="top">
+    <div class="brand"><h1>全軍出雞</h1><span class="rd" id="rd"></span></div>
+    <div class="tbtns"><button class="ghostbtn" id="bHelp" type="button">規則</button><button class="ghostbtn" id="bNew" type="button">新遊戲</button></div>
+  </div>
+  <div class="rivals" id="rivals"></div>
+  <div>
+    <div class="sec-h"><span>應徵隊列</span><span id="deckInfo"></span></div>
+    <div class="recruit" id="recruit" style="margin-top:6px"></div>
+  </div>
+  <div class="status" id="status"><div class="main"></div><div class="sub"></div></div>
+  <div>
+    <div class="mehead" id="mehead"></div>
+    <div id="board"><div class="grid"></div></div>
+  </div>
+</div>
+<div class="tray" id="tray" hidden>
+  <div class="tray-in">
+    <div id="preview" aria-label="選中的卡牌，點擊或滑動旋轉"></div>
+    <div class="tray-r">
+      <div class="fc" id="forecast"></div>
+      <div class="btnrow">
+        <button class="btn rot" id="bL" type="button" aria-label="逆時針旋轉">⟲</button>
+        <button class="btn rot" id="bR" type="button" aria-label="順時針旋轉">⟳</button>
+        <button class="btn" id="bCancel" type="button">換一張</button>
+        <button class="btn pri" id="bOk" type="button">放下</button>
+      </div>
+      <div class="hint">拖曳棋盤上的虛影移動位置；卡片可點擊、左右滑或雙指旋轉</div>
+    </div>
+  </div>
+</div>
+<div class="modal" id="modal" hidden><div class="sheet" id="sheet"></div></div>
+
+<script>
+(()=>{
+/* ---------- card data (TL, TR, BL, BR) ---------- */
+const RAW=[["PA2","PD2","X","MA1"],["MD1","PD1","PA2","MA1"],["PD1","MA1","MD1","CP"],["X","MA2","PA1","PD2"],["MD1","MA2","PD1","PA1"],["X","MA1","MA2","CP"],["MD2","PA1","MA1","PD1"],["MD2","MA1","PA1","PD1"],["X","MA2","PA2","PD1"],["MA1","PA1","PD2","MD1"],["X","MA1","MD2","PA2"],["MA1","PA1","PA2","MD1"],["PA2","X","MA2","PD1"],["MA2","PA2","X","MD1"],["PA1","CP","MA1","MD1"],["MA1","PA1","MD1","MA2"],["PD1","MA1","CP","PA1"],["CP","PA1","MA1","MD1"],["X","PA2","MA2","MD1"],["MA1","PD1","PA1","C2"],["PD2","PA1","PD1","MD1"],["PA2","MA1","MD1","PD1"],["MD2","MA1","PA2","X"],["MD2","MA1","PA2","X"],["PA1","CP","X","PA2"],["PD2","X","PA1","MA2"],["PA1","MA1","PD1","PA2"],["PD1","PA1","C2","MA1"],["MA2","PD1","PA1","MD1"],["CP","PA1","MD1","MA1"],["MA1","X","PA2","MD2"],["PD2","X","MA2","PA1"],["PA2","PD1","MD1","MA1"],["PA1","X","MD2","MA2"],["MD1","MA1","PD1","CP"],["PD2","PA2","MA1","X"],["MD2","PA1","PD1","MA1"],["MD1","PA1","PD2","MA1"],["MD1","MA1","PA1","CP"],["MA1","PA1","C2","MD1"],["MA2","X","PD2","PA1"],["MA2","PA1","MD1","MA1"],["PA1","C2","PD1","MD1"]];
+const START_FRONT=["PD1","MA1","MD1","PA1"];
+const START_BACKS=[["MA2","PD1","CP","PA1"],["PA2","CP","PA1","MA1"],["C2","PD2","MD1","PA1"],["MD2","MA1","PD1","PD1"]];
+// 絕地翻雞的領袖加成：規則書沒有資料，暫定每位領袖對應一種小雞
+const LEADERS=[{name:"紫",color:"#c24f9f",bonus:"PD"},{name:"黑",color:"#59606f",bonus:"MD"},{name:"黃",color:"#e2b33a",bonus:"PA"},{name:"藍",color:"#3f8fd6",bonus:"MA"}];
+const COST=[2,1,0];
+const TNAME={PA:"物攻",MA:"魔攻",PD:"物防",MD:"魔防"};
+const DIRS=[[1,0],[-1,0],[0,1],[0,-1]];
+const SAVE_KEY="chicken-army-v1";
+
+/* ---------- helpers ---------- */
+const PC={};
+function P(code){ if(PC[code])return PC[code];
+  let r; if(code==="X")r={t:"X",v:0}; else if(code==="CP")r={t:"CP",v:1}; else if(code==="C2")r={t:"C2",v:2}; else r={t:code.slice(0,2),v:+code[2]};
+  return PC[code]=r; }
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+function rot(c,r){ let x=c.slice(); r=((r%4)+4)%4; for(let i=0;i<r;i++) x=[x[2],x[0],x[3],x[1]]; return x; }
+const K=(x,y)=>x+","+y;
+function overlay(cells,rc,x,y,k){ const o=Object.assign({},cells);
+  o[K(x,y)]={c:rc[0],k}; o[K(x+1,y)]={c:rc[1],k}; o[K(x,y+1)]={c:rc[2],k}; o[K(x+1,y+1)]={c:rc[3],k}; return o; }
+function validAt(cells,x,y){ return !!(cells[K(x,y)]||cells[K(x+1,y)]||cells[K(x,y+1)]||cells[K(x+1,y+1)]); }
+function bbox(cells){ let a=1e9,b=1e9,c=-1e9,d=-1e9;
+  for(const k in cells){ const [x,y]=k.split(",").map(Number); if(x<a)a=x; if(y<b)b=y; if(x>c)c=x; if(y>d)d=y; }
+  return {minX:a,minY:b,maxX:c,maxY:d}; }
+function positions(cells){ const s=new Set(), out=[];
+  for(const k in cells){ const [x,y]=k.split(",").map(Number);
+    for(const px of [x-1,x]) for(const py of [y-1,y]){ const kk=K(px,py); if(!s.has(kk)){s.add(kk);out.push([px,py]);} } }
+  return out; }
+function stats(cells,bonus){
+  const r={PA:0,MA:0,PD:0,MD:0,coins:0,pot:0,lone:0,live:new Set()}; const seen=new Set();
+  for(const key in cells){ const p=P(cells[key].c);
+    if(p.t==="C2"){r.coins+=2;continue} if(p.t==="CP"){r.coins++;r.pot++;continue} if(p.t==="X")continue;
+    if(seen.has(key))continue; seen.add(key);
+    const stack=[key], comp=[];
+    while(stack.length){ const k=stack.pop(); comp.push(k); const [x,y]=k.split(",").map(Number);
+      for(const [dx,dy] of DIRS){ const nk=K(x+dx,y+dy); const n=cells[nk];
+        if(n&&!seen.has(nk)&&P(n.c).t===p.t){seen.add(nk);stack.push(nk);} } }
+    if(comp.length>=2){ for(const k of comp){ r[p.t]+=P(cells[k].c).v; r.live.add(k);} } else r.lone++;
+  }
+  if(bonus) r[bonus]+=1;
+  return r; }
+const dmg=(a,d)=>Math.max(0,a.PA-d.PD)+Math.max(0,a.MA-d.MD);
+
+/* ---------- state ---------- */
+let S=null, token=0;
+function bonusOf(p){ return S.opts.jedi&&p.flipped?LEADERS[p.leader].bonus:null; }
+function pstats(p,cells){ return stats(cells||p.cells,bonusOf(p)); }
+const alive=()=>S.players.filter(p=>!p.elim);
+const me=()=>S.players[0];
+function save(){ try{localStorage.setItem(SAVE_KEY,JSON.stringify(S))}catch(e){} }
+function loadSaved(){ try{const s=localStorage.getItem(SAVE_KEY); return s?JSON.parse(s):null}catch(e){return null} }
+
+function newGame(opts){
+  const n=1+opts.opp; const leaders=shuffle([0,1,2,3]); const backs=shuffle([0,1,2,3]);
+  const players=[];
+  for(let i=0;i<n;i++){
+    const sc=opts.each?START_BACKS[backs[i]]:START_FRONT;
+    players.push({id:i,name:i===0?"你":"電腦 "+"ABC"[i-1],ai:i!==0,leader:leaders[i],life:30,elim:false,flipped:false,
+      cells:{[K(0,0)]:{c:sc[0],k:0},[K(1,0)]:{c:sc[1],k:0},[K(0,1)]:{c:sc[2],k:0},[K(1,1)]:{c:sc[3],k:0}},n:1});
+  }
+  const deck=shuffle([...RAW.keys()]);
+  const queue=[deck.pop(),deck.pop(),deck.pop()];
+  S={opts,players,deck,queue,round:0,first:Math.floor(Math.random()*n),order:[],di:0,phase:"setup",lastOut:[],finalRound:false,
+     log:[],sel:null,combat:null,winner:null,fast:false,roundFirst:0};
+}
+function orderFrom(f){ const n=S.players.length, o=[]; for(let k=0;k<n;k++){const j=(f+k)%n; if(!S.players[j].elim)o.push(j);} return o; }
+function cardsLeft(){ return S.deck.length+S.queue.filter(c=>c!=null).length; }
+function takeFromQueue(i){ const card=S.queue[i];
+  const arr=S.queue.filter((c,j)=>j!==i&&c!=null);
+  while(arr.length<3&&S.deck.length) arr.unshift(S.deck.pop());
+  while(arr.length<3) arr.unshift(null);
+  S.queue=arr; return card; }
+function canAfford(p,i){ return S.queue[i]!=null&&pstats(p).coins>=COST[i]; }
+function hasOptions(p){ return S.deck.length>0||[0,1,2].some(i=>canAfford(p,i)); }
+function applyPlace(p,card,r,x,y){ p.cells=overlay(p.cells,rot(RAW[card],r),x,y,p.n); p.n++; }
+function log(t){ S.log.push(t); if(S.log.length>30)S.log.shift(); }
+function srcName(src){ return src==="deck"?"牌堆頂（盲抽）":["最左側（2 金幣）","中間（1 金幣）","最右側（免費）"][src]; }
+function updFlip(p){ p.flipped=!!(S.opts.jedi&&p.life<15); }
+
+/* ---------- winner ---------- */
+function pickWinner(list){ const max=Math.max(...list.map(p=>p.life)); const top=list.filter(p=>p.life===max);
+  if(top.length===1) return top[0];
+  const f=S.roundFirst; const n=S.players.length;
+  for(let k=0;k<n;k++){ const c=S.players[(f+k)%n]; if(top.includes(c)) return c; } return top[0]; }
+function endGame(w,reason){ S.phase="over"; S.winner={id:w.id,reason}; S.sel=null; save(); renderAll(); showOver(); }
+
+/* ---------- flow ---------- */
+function checkEnd(){
+  const al=alive();
+  if(al.length===1) return {p:al[0],why:"只剩下他還沒出局"};
+  if(al.length===0) return {p:pickWinner(S.players.filter(p=>S.lastOut.includes(p.id))),why:"所有人同時出局，他的生命最接近 0"};
+  if(S.finalRound||cardsLeft()===0) return {p:pickWinner(al),why:"牌用完了，最後一輪結束時他的生命最高"};
+  return null; }
+function beginRound(){ S.finalRound=cardsLeft()<alive().length; S.round++; S.phase="deploy"; S.roundFirst=S.first; S.order=orderFrom(S.first); S.di=0; S.sel=null; }
+function startRound(){
+  const w=checkEnd(); if(w) return endGame(w.p,w.why);
+  beginRound(); log((S.finalRound?"最後一輪！牌不夠每人一張，拿不到的人跳過。":"第 "+S.round+" 輪開始，")+"先手是"+S.players[S.first].name);
+  save(); renderAll(); nextDeploy();
+}
+function cur(){ return S.phase==="deploy"&&S.di<S.order.length?S.players[S.order[S.di]]:null; }
+function nextDeploy(){
+  const t=++token;
+  if(S.phase!=="deploy")return;
+  if(S.di>=S.order.length) return doCombat();
+  const p=cur();
+  if(!hasOptions(p)){ log(p.name+"沒有能拿的牌，跳過"); S.di++; save(); renderAll(); return setTimeout(()=>{if(t===token)nextDeploy()},S.fast?0:400); }
+  renderAll();
+  if(p.ai) setTimeout(()=>{ if(t!==token)return; aiTurn(p); },S.fast?0:750);
+}
+function finishTurn(){ S.di++; save(); renderAll(); nextDeploy(); }
+
+function resolveCombat(){
+  const al=S.order.map(i=>S.players[i]); const st={}; al.forEach(p=>st[p.id]=pstats(p));
+  const rows=[], hit={};
+  for(const a of al) for(const d of al){ if(a===d)continue;
+    const sa=st[a.id], sd=st[d.id]; const ph=Math.max(0,sa.PA-sd.PD), mg=Math.max(0,sa.MA-sd.MD);
+    rows.push({a:a.id,d:d.id,PA:sa.PA,PD:sd.PD,MA:sa.MA,MD:sd.MD,ph,mg}); hit[d.id]=(hit[d.id]||0)+ph+mg; }
+  const before={}, afterHit={}, heal={};
+  al.forEach(p=>{before[p.id]=p.life; p.life-=hit[p.id]||0; afterHit[p.id]=p.life;});
+  const out=al.filter(p=>p.life<=0); out.forEach(p=>{p.elim=true; log(p.name+"出局");});
+  al.filter(p=>!p.elim).forEach(p=>{ const nl=Math.min(30,p.life+st[p.id].pot); heal[p.id]=nl-p.life; p.life=nl; });
+  al.forEach(updFlip);
+  S.lastOut=out.map(p=>p.id);
+  const n=S.players.length; for(let k=1;k<=n;k++){ const j=(S.first+k)%n; if(!S.players[j].elim){S.first=j;break;} }
+  S.combat={rows,before,afterHit,heal,out:S.lastOut,ids:al.map(p=>p.id)};
+}
+function doCombat(){
+  resolveCombat(); S.phase="combat"; save(); renderAll();
+  if(S.fast){ setTimeout(()=>{ if(S.phase==="combat") startRound(); },0); return; }
+  showCombat();
+}
+
+/* ---------- AI ---------- */
+function oppsOf(p){ return S.players.filter(o=>o!==p&&!o.elim).map(o=>({o,s:pstats(o)})); }
+function evalCells(p,cells,ops,diff){
+  const s=pstats(p,cells); let sc=0, taken=0;
+  for(const {o,s:os} of ops){ const d=dmg(s,os); taken+=dmg(os,s);
+    if(diff==="hard"){ sc+=d*(1+Math.max(0,30-o.life)/30); if(d>=o.life&&o.life>0) sc+=6; } else sc+=d; }
+  if(diff==="hard"){ sc-=taken*(p.life<=12?1.6:1.15); if(taken>=p.life) sc-=25; sc+=s.pot*(p.life<30?1.2:0.4); }
+  else { sc-=taken; sc+=s.pot*0.8; }
+  sc+=Math.min(s.coins,2)*0.5+s.lone*0.12;
+  return sc; }
+function bestPlace(p,card,diff,ops){ let best=null; const pos=positions(p.cells);
+  for(let r=0;r<4;r++){ const rc=rot(RAW[card],r);
+    for(const [x,y] of pos){ const v=evalCells(p,overlay(p.cells,rc,x,y,p.n),ops,diff);
+      if(!best||v>best.v||(v===best.v&&Math.random()<.3)) best={v,r,x,y}; } }
+  return best; }
+function denial(p,card){ const n=S.players.length;
+  for(let k=1;k<n;k++){ const o=S.players[(p.id+k)%n]; if(o.elim||o===p)continue;
+    const ops=oppsOf(o); const base=evalCells(o,o.cells,ops,"normal"); return Math.max(0,bestPlace(o,card,"normal",ops).v-base); }
+  return 0; }
+function aiTurn(p){ const src=aiPick(p); log(p.name+"拿了"+srcName(src)); finishTurn(); }
+function aiPick(p){
+  const diff=S.opts.diff, ops=oppsOf(p);
+  const opts=[0,1,2].filter(i=>canAfford(p,i)).map(i=>({src:i,card:S.queue[i]}));
+  let choice;
+  if(diff==="easy"){ const all=opts.slice(); if(S.deck.length) all.push({src:"deck"}); choice=pick(all); }
+  else{
+    for(const o of opts){ let v=bestPlace(p,o.card,diff,ops).v; if(diff==="hard") v+=0.4*denial(p,o.card); if(!choice||v>choice.v) choice={...o,v}; }
+    if(S.deck.length){ const sm=shuffle(S.deck.slice()).slice(0,diff==="hard"?8:4); let avg=0;
+      for(const c of sm) avg+=bestPlace(p,c,diff,ops).v; avg=avg/sm.length-(diff==="hard"?0.3:0.6);
+      if(!choice||avg>choice.v) choice={src:"deck",v:avg}; }
+  }
+  const card=choice.src==="deck"?S.deck.pop():takeFromQueue(choice.src);
+  let pl;
+  if(diff==="easy"){ const pos=positions(p.cells);
+    if(Math.random()<.5){ const [x,y]=pick(pos); pl={r:Math.floor(Math.random()*4),x,y}; }
+    else{ let best=null; for(let i=0;i<6;i++){ const [x,y]=pick(pos), r=Math.floor(Math.random()*4);
+      const v=evalCells(p,overlay(p.cells,rot(RAW[card],r),x,y,p.n),ops,"normal"); if(!best||v>best.v) best={v,r,x,y}; } pl=best; } }
+  else pl=bestPlace(p,card,diff,ops);
+  applyPlace(p,card,pl.r,pl.x,pl.y);
+  return choice.src;
+}
+
+/* ---------- icons & cells ---------- */
+const IC={
+ PA:'<path d="M19 5 8.5 15.5" stroke-width="3.2"/><path d="M6 12.5l5.5 5.5M7.2 16.8 4 20" stroke-width="2.4"/>',
+ MA:'<path d="M5 20 14.5 10.5" stroke-width="2.6"/><path d="M17 2.5l1.3 3.2 3.2 1.3-3.2 1.3L17 11.5l-1.3-3.2L12.5 7l3.2-1.3z" fill="currentColor" stroke="none"/>',
+ PD:'<path d="M12 3l7.5 3v5.5c0 4.6-3.2 7.8-7.5 9.5-4.3-1.7-7.5-4.9-7.5-9.5V6z" stroke-width="2.2"/><path d="M12 7v10" stroke-width="2"/>',
+ MD:'<rect x="5" y="3.5" width="14" height="17" rx="2" stroke-width="2.2"/><path d="M8.5 9.5c1.5-1.4 5.5 1.4 7 0M8.5 14.5c1.5-1.4 5.5 1.4 7 0" stroke-width="1.8"/>',
+ CO:'<circle cx="12" cy="12" r="7.5" stroke-width="2.2"/><rect x="10" y="10" width="4" height="4" stroke-width="1.8"/>',
+ PO:'<path d="M10 3.5h4M10.5 3.5v5L6.2 16a2.8 2.8 0 0 0 2.5 4.2h6.6a2.8 2.8 0 0 0 2.5-4.2L13.5 8.5v-5" stroke-width="2"/><path d="M7.6 14.5h8.8" stroke-width="1.6"/>'
+};
+const svg=(k,s)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[k]}</svg>`;
+function cellInner(code,cs){ const p=P(code);
+  if(p.t==="X") return "";
+  if(cs<22&&p.t!=="C2"&&p.t!=="CP") return `<i class="pips" style="font-size:${Math.max(4,cs*.32)}px;letter-spacing:0">${p.v===2?"●●":"●"}</i>`;
+  if(p.t==="C2") return `<span class="duo">${svg("CO",cs*.38)}${svg("CO",cs*.38)}</span>`;
+  if(p.t==="CP") return `<span class="duo">${svg("CO",cs*.38)}${svg("PO",cs*.38)}</span>`;
+  return svg(p.t,cs*.52)+`<i class="pips" style="font-size:${Math.max(6,cs*.17)}px">${p.v===2?"●●":"●"}</i>`; }
+function miniCard(cells,size){ return `<div class="mini-grid">${cells.map(c=>`<div class="cell c-${P(c).t}">${cellInner(c,size/2)}</div>`).join("")}</div>`; }
+
+/* ---------- board rendering ---------- */
+let view=null;
+function boardHTML(p,cs,frame,opt){
+  const {minX,minY,maxX,maxY}=frame; const live=stats(p.cells).live; const last=p.n-1;
+  let h="";
+  for(const k in p.cells){ const [x,y]=k.split(",").map(Number); const c=p.cells[k]; const t=P(c.c).t;
+    const e=DIRS.map(([dx,dy])=>{const n=p.cells[K(x+dx,y+dy)];return (!n||n.k!==c.k)?(cs<20?1:2):(cs<20?0:.5);}); // r,l,b,t
+    const iso=(t==="PA"||t==="MA"||t==="PD"||t==="MD")&&!live.has(k);
+    h+=`<div class="cell c-${t}${iso?" iso":""}${c.k===last&&last>0?" last":""}" style="left:${(x-minX)*cs}px;top:${(y-minY)*cs}px;width:${cs}px;height:${cs}px;border-width:${e[3]}px ${e[0]}px ${e[2]}px ${e[1]}px">${cellInner(c.c,cs)}</div>`; }
+  if(opt&&opt.sel){ const s=opt.sel; const rc=rot(RAW[s.card],s.r); const ok=validAt(p.cells,s.x,s.y);
+    h+=`<div class="ghost ${ok?"ok":"no"}" style="left:${(s.x-minX)*cs}px;top:${(s.y-minY)*cs}px;width:${cs*2}px;height:${cs*2}px">${rc.map(c=>`<div class="cell c-${P(c).t}">${cellInner(c,cs)}</div>`).join("")}</div>`; }
+  return {html:h,w:(maxX-minX+1)*cs,h:(maxY-minY+1)*cs};
+}
+function renderRivalBoards(){ const n=S.players.length-1;
+  document.querySelectorAll("#rivals .rival").forEach(el=>{ const p=S.players[+el.dataset.r]; const box=el.querySelector(".rboard"), g=box.querySelector(".grid");
+    const fr=bbox(p.cells); const cols=fr.maxX-fr.minX+1, rows=fr.maxY-fr.minY+1;
+    const W=box.clientWidth||100, maxH=n===1?170:n===2?140:112;
+    const cs=Math.max(6,Math.min(34,Math.floor(W/cols),Math.floor(maxH/rows)));
+    const r=boardHTML(p,cs,fr,{}); g.style.width=r.w+"px"; g.style.height=r.h+"px"; g.style.backgroundImage="none"; g.innerHTML=r.html; }); }
+function frameOf(p){ const b=bbox(p.cells); return {minX:b.minX-1,minY:b.minY-1,maxX:b.maxX+1,maxY:b.maxY+1}; }
+function renderBoard(){
+  const p=me(), el=document.getElementById("board"), g=el.querySelector(".grid");
+  const fr=frameOf(p); const cols=fr.maxX-fr.minX+1, rows=fr.maxY-fr.minY+1;
+  const W=el.clientWidth||340, H=Math.max(240,window.innerHeight*(S.sel?.40:.48));
+  const cs=Math.max(16,Math.min(60,Math.floor(W/cols),Math.floor(H/rows)));
+  const r=boardHTML(p,cs,fr,{sel:S.sel});
+  g.style.width=r.w+"px"; g.style.height=r.h+"px"; g.style.backgroundSize=cs+"px "+cs+"px"; g.style.backgroundPosition=(cs/2)+"px "+(cs/2)+"px";
+  g.innerHTML=r.html; view={fr,cs,g};
+  el.classList.toggle("placing",!!S.sel);
+}
+
+/* ---------- main render ---------- */
+function statChips(s,base){ const d=(k)=>{ if(!base)return ""; const v=s[k]-base[k]; return v?`<span class="d ${v>0?"up":"dn"}">${v>0?"+":""}${v}</span>`:""; };
+  return `<span class="st pa">${svg("PA",14)}${s.PA}${d("PA")}</span><span class="st ma">${svg("MA",14)}${s.MA}${d("MA")}</span><span class="st pd">${svg("PD",14)}${s.PD}${d("PD")}</span><span class="st md">${svg("MD",14)}${s.MD}${d("MD")}</span><span class="st co">${svg("CO",14)}${s.coins}${d("coins")}</span><span class="st po">${svg("PO",14)}${s.pot}${d("pot")}</span>`; }
+function tagsOf(p){ let t=""; if(!p.elim&&S.first===p.id&&S.phase!=="setup") t+=`<span class="tag first">先手</span>`;
+  if(p.elim) t+=`<span class="tag">出局</span>`; if(p.flipped) t+=`<span class="tag flip">翻雞 +1${TNAME[LEADERS[p.leader].bonus]}</span>`;
+  return t; }
+function renderAll(){
+  if(!S)return;
+  const c=cur(); const m=me(); const ms=pstats(m);
+  document.getElementById("rd").textContent=S.round?("第 "+S.round+" 輪"+(S.finalRound?"・最後一輪":"")+"・"+{easy:"簡單",normal:"普通",hard:"困難"}[S.opts.diff]):"";
+  // rivals
+  const rv=document.getElementById("rivals"); rv.style.setProperty("--n",S.players.length-1); rv.dataset.n=S.players.length-1;
+  document.getElementById("rivals").innerHTML=S.players.slice(1).map(p=>{ const s=pstats(p);
+    const vs=(!p.elim&&!m.elim)?`<div class="vs">你打他 <b>${dmg(ms,s)}</b>｜他打你 <b>${dmg(s,ms)}</b></div>`:"";
+    return `<button type="button" class="rival${c===p?" act":""}${p.elim?" out":""}" data-r="${p.id}">
+      <div class="rhead"><span class="ldot" style="background:${LEADERS[p.leader].color}"></span><span class="rname">${p.name}</span><span class="life${p.life<15?" low":""}">${p.life}</span></div>
+      <div class="rboard"><div class="grid"></div></div>
+      <div class="stats">${statChips(s)}</div>${vs}<div class="tags">${tagsOf(p)}</div></button>`; }).join("");
+  renderRivalBoards();
+  // recruit
+  const myTurn=c===m; const coins=ms.coins;
+  let rh=`<button type="button" class="slot${myTurn&&S.deck.length&&!S.sel?.locked?" can":" lock"}" data-s="deck" ${myTurn&&S.deck.length&&!(S.sel&&S.sel.locked)?"":"disabled"}><div class="mini"><div class="back">${S.deck.length}</div></div><span class="cost">盲抽・免費</span></button>`;
+  for(let i=0;i<3;i++){ const card=S.queue[i]; const ok=myTurn&&card!=null&&coins>=COST[i]&&!(S.sel&&S.sel.locked);
+    const picked=S.sel&&S.sel.src===i;
+    rh+=`<button type="button" class="slot${ok?" can":" lock"}${picked?" picked":""}" data-s="${i}" ${ok?"":"disabled"}><div class="mini">${card==null?'<div class="empty-slot"></div>':miniCard(RAW[card],92)}</div><span class="cost">${COST[i]?"需 "+COST[i]+" 金幣":"免費"}</span></button>`; }
+  document.getElementById("recruit").innerHTML=rh;
+  document.getElementById("deckInfo").textContent="牌堆剩 "+S.deck.length+" 張";
+  // status
+  let main="", sub=S.log.length?S.log[S.log.length-1]:"";
+  if(S.phase==="setup") main="選好對手和難度就能開始";
+  else if(S.phase==="over") main=S.players[S.winner.id].name+(S.winner.id===0?"獲勝了！":"獲勝");
+  else if(S.phase==="combat") main="戰鬥結算中";
+  else if(myTurn) main=S.sel?"移動虛影到想放的位置，再按「放下」":"輪到你：從應徵隊列拿一張牌";
+  else if(c) main=c.name+" 思考中…";
+  if(m.elim&&S.phase!=="over") sub="你已出局，電腦們繼續對戰";
+  const st=document.getElementById("status"); st.querySelector(".main").textContent=main; st.querySelector(".sub").textContent=sub;
+  // me
+  document.getElementById("mehead").innerHTML=`<span class="ldot" style="background:${LEADERS[m.leader].color}"></span><span class="rname">你的軍團</span><span class="life${m.life<15?" low":""}">${m.life}</span><div class="stats">${statChips(ms)}</div><div class="tags">${tagsOf(m)}</div>`;
+  renderBoard(); renderTray();
+}
+function renderTray(){
+  const tr=document.getElementById("tray"); const s=S.sel;
+  if(!s){ tr.hidden=true; return; } tr.hidden=false;
+  const m=me(); const rc=rot(RAW[s.card],s.r);
+  document.getElementById("preview").innerHTML=miniCard(rc,104);
+  const ok=validAt(m.cells,s.x,s.y);
+  document.getElementById("bOk").disabled=!ok;
+  document.getElementById("bCancel").hidden=!!s.locked;
+  const base=pstats(m); const ns=pstats(m,overlay(m.cells,rc,s.x,s.y,m.n));
+  let f=`<div class="stats">${statChips(ns,base)}</div>`;
+  if(!ok) f+=`<span style="color:var(--bad)">這個位置沒有蓋到任何格子，不能放</span>`;
+  else{ const ops=oppsOf(m); f+=ops.map(({o,s:os})=>`<span>${o.name}：你打他 ${dmg(base,os)}→<b>${dmg(ns,os)}</b>・他打你 ${dmg(os,base)}→<b>${dmg(os,ns)}</b></span>`).join(""); }
+  document.getElementById("forecast").innerHTML=f;
+}
+
+/* ---------- human input ---------- */
+function defaultGhost(){ const m=me(); const b=bbox(m.cells);
+  if(m.cells[K(b.maxX,b.maxY)]) return {x:b.maxX,y:b.maxY};
+  let best=null; const cx=(b.minX+b.maxX)/2, cy=(b.minY+b.maxY)/2;
+  for(const k in m.cells){ const [x,y]=k.split(",").map(Number); const d=Math.abs(x-cx)+Math.abs(y-cy); if(!best||d<best.d) best={d,x,y}; }
+  return {x:best.x,y:best.y}; }
+function clampGhost(x,y){ const b=bbox(me().cells); return {x:Math.max(b.minX-1,Math.min(b.maxX,x)),y:Math.max(b.minY-1,Math.min(b.maxY,y))}; }
+document.getElementById("recruit").addEventListener("click",e=>{
+  const b=e.target.closest(".slot"); if(!b||b.disabled)return; if(cur()!==me())return;
+  const src=b.dataset.s;
+  if(src==="deck"){ if(!S.deck.length||(S.sel&&S.sel.locked))return;
+    const keep=S.sel?{x:S.sel.x,y:S.sel.y}:defaultGhost();
+    S.sel={src:"deck",card:S.deck.pop(),r:0,...keep,locked:true}; log("你從牌堆盲抽了一張"); save(); renderAll(); return; }
+  const i=+src; if(!canAfford(me(),i))return;
+  const keep=S.sel?{x:S.sel.x,y:S.sel.y,r:0}:{...defaultGhost(),r:0};
+  S.sel={src:i,card:S.queue[i],...keep}; renderAll();
+});
+function rotateSel(d){ if(!S.sel)return; S.sel.r=(S.sel.r+d+4)%4; const pv=document.getElementById("preview");
+  pv.style.transform=`rotate(${d*12}deg)`; setTimeout(()=>pv.style.transform="",140); renderBoard(); renderTray(); }
+document.getElementById("bL").onclick=()=>rotateSel(-1);
+document.getElementById("bR").onclick=()=>rotateSel(1);
+document.getElementById("bCancel").onclick=()=>{ if(S.sel&&!S.sel.locked){S.sel=null; renderAll();} };
+document.getElementById("bOk").onclick=()=>{
+  const s=S.sel, m=me(); if(!s||cur()!==m||!validAt(m.cells,s.x,s.y))return;
+  if(s.src!=="deck") takeFromQueue(s.src);
+  applyPlace(m,s.card,s.r,s.x,s.y); if(s.src!=="deck") log("你拿了"+srcName(s.src));
+  S.sel=null; finishTurn();
+};
+
+function gestures(el,h){
+  const pts=new Map(); let start=null, moved=false, two=false, ang=null;
+  const angle=()=>{ const [a,b]=[...pts.values()]; return Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI; };
+  el.addEventListener("pointerdown",e=>{ if(!h.active())return;
+    try{el.setPointerCapture(e.pointerId)}catch(_){}
+    pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pts.size===1){ start={x:e.clientX,y:e.clientY}; moved=false; two=false; h.start&&h.start(e); }
+    else if(pts.size===2){ two=true; ang=angle(); }
+    e.preventDefault(); });
+  el.addEventListener("pointermove",e=>{ if(!pts.has(e.pointerId))return; pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pts.size>=2){ const a=angle(); let d=a-ang; if(d>180)d-=360; if(d<-180)d+=360;
+      if(d>35){h.rotate(1);ang=a} else if(d<-35){h.rotate(-1);ang=a} return; }
+    if(!start||two)return; const dx=e.clientX-start.x, dy=e.clientY-start.y;
+    if(Math.hypot(dx,dy)>8) moved=true; if(moved&&h.drag) h.drag(dx,dy); });
+  const end=e=>{ if(!pts.has(e.pointerId))return; pts.delete(e.pointerId);
+    if(pts.size===0){ if(!two&&start){ const dx=e.clientX-start.x;
+        if(!moved) h.tap&&h.tap(e); else if(h.swipe&&Math.abs(dx)>30) h.swipe(dx>0?1:-1); }
+      start=null; } };
+  el.addEventListener("pointerup",end); el.addEventListener("pointercancel",end);
+}
+let g0=null;
+const placing=()=>!!S&&!!S.sel&&cur()===me();
+gestures(document.getElementById("board"),{
+  active:placing,
+  start:()=>{ g0={x:S.sel.x,y:S.sel.y}; },
+  drag:(dx,dy)=>{ const n=clampGhost(g0.x+Math.round(dx/view.cs),g0.y+Math.round(dy/view.cs));
+    if(n.x!==S.sel.x||n.y!==S.sel.y){ S.sel.x=n.x; S.sel.y=n.y; renderBoard(); renderTray(); } },
+  tap:e=>{ const r=view.g.getBoundingClientRect(); const fx=view.fr.minX+(e.clientX-r.left)/view.cs, fy=view.fr.minY+(e.clientY-r.top)/view.cs;
+    const n=clampGhost(Math.round(fx-1),Math.round(fy-1)); S.sel.x=n.x; S.sel.y=n.y; renderBoard(); renderTray(); },
+  rotate:rotateSel
+});
+gestures(document.getElementById("preview"),{ active:placing, rotate:rotateSel, swipe:rotateSel, tap:()=>rotateSel(1) });
+window.addEventListener("keydown",e=>{ if(!placing())return;
+  if(e.key==="r"||e.key==="R") rotateSel(e.shiftKey?-1:1);
+  const mv={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];
+  if(mv){ e.preventDefault(); const n=clampGhost(S.sel.x+mv[0],S.sel.y+mv[1]); S.sel.x=n.x; S.sel.y=n.y; renderBoard(); renderTray(); }
+  if(e.key==="Enter") document.getElementById("bOk").click(); });
+
+/* rival army viewer */
+document.getElementById("rivals").addEventListener("click",e=>{ const b=e.target.closest(".rival"); if(!b)return;
+  const p=S.players[+b.dataset.r]; const fr=frameOf(p); const cols=fr.maxX-fr.minX+1, rows=fr.maxY-fr.minY+1;
+  const W=Math.min(480,window.innerWidth-60); const cs=Math.max(16,Math.min(52,Math.floor(W/cols),Math.floor(window.innerHeight*.5/rows)));
+  const r=boardHTML(p,cs,fr,{});
+  openModal(`<h2>${p.name}的軍團</h2><div class="stats">${statChips(pstats(p))}</div>
+    <div style="display:flex;justify-content:center"><div class="grid" style="width:${r.w}px;height:${r.h}px;background-size:${cs}px ${cs}px;background-position:${cs/2}px ${cs/2}px">${r.html}</div></div>
+    <div class="hint">顏色較暗的格子是沒有和同類小雞相鄰的，目前不計分。</div>
+    <button class="btn pri" type="button" data-close>關閉</button>`); });
+
+/* ---------- modals ---------- */
+const modal=document.getElementById("modal"), sheet=document.getElementById("sheet");
+function openModal(h){ sheet.innerHTML=h; modal.hidden=false; sheet.scrollTop=0; }
+function closeModal(){ modal.hidden=true; }
+sheet.addEventListener("click",e=>{ if(e.target.closest("[data-close]")) closeModal(); });
+
+function showCombat(){
+  const C=S.combat; const N=id=>S.players[id];
+  let h=`<h2>第 ${S.round} 輪・戰鬥</h2><div class="cmb">`;
+  for(const aid of C.ids){ const a=N(aid);
+    h+=`<div class="cmb-a"><div class="hd"><span class="ldot" style="background:${LEADERS[a.leader].color}"></span>${a.name}出擊</div>`;
+    for(const r of C.rows.filter(r=>r.a===aid)){ const t=r.ph+r.mg;
+      h+=`<div class="cmb-r"><span>→ ${N(r.d).name}：物 ${r.PA}−${r.PD}，魔 ${r.MA}−${r.MD}</span><span class="${t?"hit":""}">${t?"扣 "+t:"擋下"}</span></div>`; }
+    h+=`</div>`; }
+  h+=`</div><h3>重整</h3><div class="lifes">`;
+  for(const id of C.ids){ const p=N(id); const hl=C.heal[id];
+    h+=`<div><span>${p.name}</span><span>${C.before[id]} → ${C.afterHit[id]}${hl?` <span style="color:var(--ok)">+${hl}</span>`:""}${p.elim?' <b style="color:var(--bad)">出局</b>':` = <b>${p.life}</b>`}</span></div>`; }
+  h+=`</div>`;
+  const al=alive();
+  const more=al.length>1&&!S.finalRound;
+  if(more) h+=`<div class="hint">下一輪先手：${S.players[S.first].name}</div>`;
+  h+=`<div class="btnrow"><button class="btn pri" type="button" id="bNext">${more?"下一輪":"看結果"}</button>${me().elim&&al.length>1?'<button class="btn" type="button" id="bFast">直接快轉到結束</button>':""}</div>`;
+  openModal(h);
+  document.getElementById("bNext").onclick=()=>{ closeModal(); startRound(); };
+  const bf=document.getElementById("bFast"); if(bf) bf.onclick=()=>{ S.fast=true; closeModal(); startRound(); };
+}
+function showOver(){ const w=S.players[S.winner.id];
+  const rank=S.players.slice().sort((a,b)=>b.life-a.life);
+  openModal(`<h2>${w.id===0?"你贏了！":"這局由 "+w.name+" 獲勝"}</h2><div class="big">${w.name}</div><div class="hint">${S.winner.reason}・共 ${S.round} 輪</div>
+   <div class="lifes">${rank.map(p=>`<div><span>${p.name}${p.elim?"（出局）":""}</span><b>${p.life}</b></div>`).join("")}</div>
+   <div class="btnrow"><button class="btn pri" type="button" id="bAgain">再來一局</button><button class="btn" type="button" data-close>看看棋盤</button></div>`);
+  document.getElementById("bAgain").onclick=()=>showSetup(S.opts);
+}
+function showSetup(prev){
+  const o=Object.assign({opp:1,diff:"normal",each:false,jedi:false},prev||{});
+  const saved=loadSaved(); const resumable=saved&&saved.phase!=="over"&&saved.phase!=="setup"&&saved.round>0;
+  const seg=(name,vals)=>`<div class="seg" data-g="${name}">${vals.map(([v,l])=>`<button type="button" data-v="${v}" class="${String(o[name])===String(v)?"on":""}">${l}</button>`).join("")}</div>`;
+  openModal(`<h2>全軍出雞・開新局</h2>
+   <h3>電腦對手人數</h3>${seg("opp",[[1,"1 位"],[2,"2 位"],[3,"3 位"]])}
+   <h3>電腦難度</h3>${seg("diff",[["easy","簡單"],["normal","普通"],["hard","困難"]])}
+   <div class="hint">簡單：隨便拿、隨便放。普通：每步挑當下最划算的。困難：會看誰快死、會搶你想要的牌。</div>
+   <h3>變體規則</h3>
+   <label class="chk"><input type="checkbox" id="vEach" ${o.each?"checked":""}><span>各有千雞<small>每人的起始卡翻到彼此不同的那一面。</small></span></label>
+   <label class="chk"><input type="checkbox" id="vJedi" ${o.jedi?"checked":""}><span>絕地翻雞<small>生命低於 15 時領袖翻面，該領袖的小雞類型點數 +1；回到 15 以上就翻回。</small></span></label>
+   <div class="btnrow"><button class="btn pri" type="button" id="bStart">開始</button>${resumable?'<button class="btn" type="button" id="bResume">繼續上一局（第 '+saved.round+' 輪）</button>':""}</div>`);
+  sheet.querySelectorAll(".seg").forEach(sg=>sg.addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b)return;
+    sg.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
+    o[sg.dataset.g]=sg.dataset.g==="opp"?+b.dataset.v:b.dataset.v; }));
+  document.getElementById("bStart").onclick=()=>{ o.each=document.getElementById("vEach").checked; o.jedi=document.getElementById("vJedi").checked;
+    token++; newGame(o); closeModal(); startRound(); };
+  const br=document.getElementById("bResume"); if(br) br.onclick=()=>{ token++; S=saved; S.fast=false; closeModal(); resume(); };
+}
+function resume(){ renderAll();
+  if(S.phase==="deploy") nextDeploy(); else if(S.phase==="combat") showCombat(); else if(S.phase==="over") showOver(); }
+document.getElementById("bNew").onclick=()=>showSetup(S&&S.opts);
+document.getElementById("bHelp").onclick=()=>{
+  openModal(`<h2>規則速查</h2><div class="rules">
+   <p><b>部署</b>：從先手開始輪流拿一張牌。最右側和牌堆頂（盲抽）免費；中間要軍團裡看得到 1 枚金幣，最左側要 2 枚。金幣不會花掉。</p>
+   <p><b>擺放</b>：新牌必須疊在上面，至少蓋住 1 格。放下前可以旋轉，放下後不能再動。</p>
+   <p><b>計分</b>：同類型小雞要和另一格同類型十字相連（兩格以上）才算，所有相連群組的點數加總。單獨一格不算。</p>
+   <p><b>戰鬥</b>：每人用攻擊打所有對手。物攻減物防、魔攻減魔防，負數算 0。每個對手都吃完整的攻擊。</p>
+   <p><b>重整</b>：生命 ≤ 0 出局。每瓶可見藥水回 1 點（上限 30）。先手順時針傳下去。</p>
+   <p><b>結束</b>：只剩一人；或全部同時出局（最接近 0 的贏）；或牌不夠每人拿一張時，打完這最後一輪再比生命，最高的贏。平手由先手獲勝。</p></div>
+   <div class="legend">${["PA1","MA1","PD1","MD1","CP","C2","X"].map(c=>`<div><span class="cell c-${P(c).t}">${cellInner(c,30)}</span>${{PA1:"物理攻擊",MA1:"魔法攻擊",PD1:"物理防禦",MD1:"魔法防禦",CP:"1 金幣 + 1 藥水",C2:"2 金幣",X:"空格"}[c]}</div>`).join("")}<div><span class="hint">● = 1 點，●● = 2 點</span></div></div>
+   <button class="btn pri" type="button" data-close>知道了</button>`); };
+window.addEventListener("resize",()=>{ if(S) renderAll(); });
+
+/* ---------- boot ---------- */
+window.__sim=function(diff,games){ // AI-only games for testing
+  const res=[];
+  for(let g=0;g<games;g++){ newGame({opp:3,diff,each:g%2===1,jedi:g%2===0}); S.players[0].ai=true;
+    let w=null, guard=0;
+    while(!(w=checkEnd())&&guard++<60){ beginRound();
+      for(const i of S.order){ const p=S.players[i]; if(hasOptions(p)){ const n0=p.n; aiPick(p); if(p.n!==n0+1) throw new Error("place fail"); } }
+      resolveCombat(); }
+    res.push({rounds:S.round,winner:w&&w.p.name,why:w&&w.why,lives:S.players.map(p=>p.life),left:cardsLeft()}); }
+  return res; };
+
+function start(data){
+  const saved=(data&&data.S)||null;
+  newGame({opp:1,diff:"normal",each:false,jedi:false}); renderAll();
+  if(saved&&saved.phase==="deploy"||saved&&saved.phase==="combat"){ S=saved; S.fast=false; resume(); return; }
+  showSetup();
+}
+window.claude?.hot?.snapshot?.(()=>({S}));
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
+
+</body>
+</html>
