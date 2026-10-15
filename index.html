@@ -116,11 +116,15 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 /* tray */
 .tray{position:sticky;bottom:0;z-index:5;margin-inline:calc(-1*max(16px,env(safe-area-inset-left,0px))) calc(-1*max(16px,env(safe-area-inset-right,0px)));
   background:var(--panel);border-top:1px solid var(--line);box-shadow:0 -8px 24px rgba(0,0,0,.35);
-  padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
-.tray-in{max-width:720px;margin:0 auto;display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center}
-#preview{width:104px;height:104px;border-radius:10px;overflow:hidden;touch-action:none;cursor:grab;box-shadow:0 0 0 2px var(--gold);transition:transform .18s}
-.tray-r{display:flex;flex-direction:column;gap:8px;min-width:0}
-.fc{font-size:12px;color:var(--mute);display:flex;flex-direction:column;gap:3px}
+  padding:8px max(16px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.tray-in{max-width:720px;margin:0 auto;display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center}
+#preview{width:72px;height:72px;border-radius:10px;overflow:hidden;touch-action:none;cursor:grab;box-shadow:0 0 0 2px var(--gold);transition:transform .18s}
+.tray-r{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fc{font-size:12px;color:var(--mute);display:flex;flex-direction:column;gap:2px}
+.fc .stats .st{font-size:11px;padding:0 4px 0 2px}
+.fc .stats .st svg{width:12px;height:12px}
+.tray .btn{padding:7px 11px}
+.tray .btn.rot{padding:4px 11px}
 .fc b{color:var(--fg);font-variant-numeric:tabular-nums}
 .btnrow{display:flex;gap:6px;flex-wrap:wrap}
 .btn{border:0;border-radius:9px;padding:8px 12px;background:var(--panel2);font-weight:700;font-size:14px}
@@ -188,7 +192,6 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
         <button class="btn" id="bCancel" type="button">換一張</button>
         <button class="btn pri" id="bOk" type="button">放下</button>
       </div>
-      <div class="hint">拖曳棋盤上的虛影移動位置；卡片可點擊、左右滑或雙指旋轉</div>
     </div>
   </div>
 </div>
@@ -413,7 +416,9 @@ function frameOf(p){ const b=bbox(p.cells); return {minX:b.minX-1,minY:b.minY-1,
 function renderBoard(){
   const p=me(), el=document.getElementById("board"), g=el.querySelector(".grid");
   const fr=frameOf(p); const cols=fr.maxX-fr.minX+1, rows=fr.maxY-fr.minY+1;
-  const W=el.clientWidth||340, H=Math.max(240,window.innerHeight*(S.sel?.40:.48));
+  const trayH=S.sel?(document.getElementById("tray").offsetHeight||110):0;
+  const headH=(document.getElementById("mehead").offsetHeight||30)+24;
+  const W=el.clientWidth||340, H=S.sel?Math.max(160,window.innerHeight-trayH-headH):Math.max(240,window.innerHeight*.48);
   const cs=Math.max(16,Math.min(60,Math.floor(W/cols),Math.floor(H/rows)));
   const r=boardHTML(p,cs,fr,{sel:S.sel});
   g.style.width=r.w+"px"; g.style.height=r.h+"px"; g.style.backgroundSize=cs+"px "+cs+"px"; g.style.backgroundPosition=(cs/2)+"px "+(cs/2)+"px";
@@ -453,26 +458,28 @@ function renderAll(){
   if(S.phase==="setup") main="選好對手和難度就能開始";
   else if(S.phase==="over") main=S.players[S.winner.id].name+(S.winner.id===0?"獲勝了！":"獲勝");
   else if(S.phase==="combat") main="戰鬥結算中";
-  else if(myTurn) main=S.sel?"移動虛影到想放的位置，再按「放下」":"輪到你：從應徵隊列拿一張牌";
+  else if(myTurn) main=S.sel?"拖曳虛影選位置，點下方小卡或雙指旋轉，再按「放下」":"輪到你：從應徵隊列拿一張牌";
   else if(c) main=c.name+" 思考中…";
   if(m.elim&&S.phase!=="over") sub="你已出局，電腦們繼續對戰";
   const st=document.getElementById("status"); st.querySelector(".main").textContent=main; st.querySelector(".sub").textContent=sub;
   // me
   document.getElementById("mehead").innerHTML=`<span class="ldot" style="background:${LEADERS[m.leader].color}"></span><span class="rname">你的軍團</span><span class="life${m.life<15?" low":""}">${m.life}</span><div class="stats">${statChips(ms)}</div><div class="tags">${tagsOf(m)}</div>`;
-  renderBoard(); renderTray();
+  renderTray(); renderBoard();
 }
 function renderTray(){
   const tr=document.getElementById("tray"); const s=S.sel;
   if(!s){ tr.hidden=true; return; } tr.hidden=false;
   const m=me(); const rc=rot(RAW[s.card],s.r);
-  document.getElementById("preview").innerHTML=miniCard(rc,104);
+  document.getElementById("preview").innerHTML=miniCard(rc,72);
   const ok=validAt(m.cells,s.x,s.y);
   document.getElementById("bOk").disabled=!ok;
   document.getElementById("bCancel").hidden=!!s.locked;
   const base=pstats(m); const ns=pstats(m,overlay(m.cells,rc,s.x,s.y,m.n));
   let f=`<div class="stats">${statChips(ns,base)}</div>`;
   if(!ok) f+=`<span style="color:var(--bad)">這個位置沒有蓋到任何格子，不能放</span>`;
-  else{ const ops=oppsOf(m); f+=ops.map(({o,s:os})=>`<span>${o.name}：你打他 ${dmg(base,os)}→<b>${dmg(ns,os)}</b>・他打你 ${dmg(os,base)}→<b>${dmg(os,ns)}</b></span>`).join(""); }
+  else{ const ops=oppsOf(m); let a0=0,a1=0,t0=0,t1=0;
+    ops.forEach(({s:os})=>{a0+=dmg(base,os);a1+=dmg(ns,os);t0+=dmg(os,base);t1+=dmg(os,ns);});
+    f+=`<span>${ops.length>1?"對所有對手合計":"對"+ops[0].o.name}：你打 ${a0}→<b>${a1}</b>・你挨 ${t0}→<b>${t1}</b></span>`; }
   document.getElementById("forecast").innerHTML=f;
 }
 
@@ -488,11 +495,13 @@ document.getElementById("recruit").addEventListener("click",e=>{
   const src=b.dataset.s;
   if(src==="deck"){ if(!S.deck.length||(S.sel&&S.sel.locked))return;
     const keep=S.sel?{x:S.sel.x,y:S.sel.y}:defaultGhost();
-    S.sel={src:"deck",card:S.deck.pop(),r:0,...keep,locked:true}; log("你從牌堆盲抽了一張"); save(); renderAll(); return; }
+    const first=!S.sel; S.sel={src:"deck",card:S.deck.pop(),r:0,...keep,locked:true}; log("你從牌堆盲抽了一張"); save(); renderAll(); if(first) focusBoard(); return; }
   const i=+src; if(!canAfford(me(),i))return;
   const keep=S.sel?{x:S.sel.x,y:S.sel.y,r:0}:{...defaultGhost(),r:0};
-  S.sel={src:i,card:S.queue[i],...keep}; renderAll();
+  const first=!S.sel; S.sel={src:i,card:S.queue[i],...keep}; renderAll(); if(first) focusBoard();
 });
+function focusBoard(){ requestAnimationFrame(()=>{ const h=document.getElementById("mehead");
+  const top=h.getBoundingClientRect().top+window.scrollY-8; window.scrollTo({top,behavior:"smooth"}); }); }
 function rotateSel(d){ if(!S.sel)return; S.sel.r=(S.sel.r+d+4)%4; const pv=document.getElementById("preview");
   pv.style.transform=`rotate(${d*12}deg)`; setTimeout(()=>pv.style.transform="",140); renderBoard(); renderTray(); }
 document.getElementById("bL").onclick=()=>rotateSel(-1);
