@@ -134,7 +134,7 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .btn.rot{font-size:18px;padding:5px 12px;line-height:1}
 .hint{font-size:11px;color:var(--mute)}
 
-/* victory hanabi */
+/* animated victory pile */
 #fx{position:fixed;inset:0;z-index:40;opacity:0;transition:opacity .7s ease;cursor:pointer;
   background:radial-gradient(120% 70% at 50% 110%,#22213f 0%,#0d0f22 45%,#05060d 100%)}
 #fx.on{opacity:1}
@@ -147,6 +147,13 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
   text-shadow:0 0 18px rgba(255,190,110,.55),0 0 2px rgba(255,255,255,.9);opacity:0;transform:translateY(8px);transition:opacity 1.2s ease .9s,transform 1.2s ease .9s}
 #fx.on .fx-msg b{opacity:1;transform:none}
 .fx-msg span{font-size:12px;color:rgba(255,240,220,.55);letter-spacing:.2em}
+
+
+/* 動態勝利舞台：像素繪圖、支援手機橫豎版 */
+#fx{background:#151a36;overflow:hidden;touch-action:manipulation}
+#fx canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+#fx .fx-skip{position:absolute;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(19px + env(safe-area-inset-bottom,0px));z-index:2;border:2px solid #f5d17b;border-radius:7px;background:#1b2345;color:#ffecb3;font-weight:900;padding:9px 15px;box-shadow:0 4px 0 #070e22}
+#fx .fx-skip:focus-visible{outline:3px solid white;outline-offset:3px}
 
 /* battle stage */
 #arena{position:fixed;inset:0;z-index:35;background:#151827;display:flex;flex-direction:column;
@@ -235,7 +242,7 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 </div>
 <div class="modal" id="modal" hidden><div class="sheet" id="sheet"></div></div>
 <div id="arena" hidden><div class="ar-top"><div class="ar-title"><b id="arT"></b><span id="arS"></span></div><div class="ar-btns"><button class="btn" type="button" id="arSkip">略過這段</button><button class="btn pri" type="button" id="arAll">全部略過</button></div></div><canvas id="arC" aria-label="戰鬥動畫，點一下略過這段"></canvas><div class="ar-tip">點畫面也可以略過這段</div></div>
-<div id="fx" hidden aria-label="勝利煙火，點一下略過"><canvas></canvas><div class="water"></div><div class="fx-msg"><b>你贏了！</b><canvas id="fxHero" width="240" height="300" hidden></canvas><span>點一下略過</span></div></div>
+<div id="fx" hidden role="dialog" aria-modal="true" aria-label="勝利角色堆疊動畫，點一下略過"><canvas aria-label="冠軍踩在其他參賽者堆疊的小山上慶祝獲勝"></canvas><button class="fx-skip" type="button" id="fxSkip">略過動畫 ›</button></div>
 
 <script>
 (()=>{
@@ -329,7 +336,7 @@ function pickWinner(list){ const max=Math.max(...list.map(p=>p.life)); const top
   const f=S.roundFirst; const n=S.players.length;
   for(let k=0;k<n;k++){ const c=S.players[(f+k)%n]; if(top.includes(c)) return c; } return top[0]; }
 function endGame(w,reason){ S.phase="over"; S.winner={id:w.id,reason}; S.sel=null; save(); renderAll();
-  if(w.id===0&&!S.fast) FX.start(showOver,ANIM()?me().avatar:null); else showOver(); }
+  if(!S.fast) FX.start(showOver,w.avatar,w,S.players); else showOver(); }
 
 /* ---------- flow ---------- */
 function checkEnd(){
@@ -857,146 +864,189 @@ document.getElementById("arAll").addEventListener("click",()=>Arena.skipAll());
 document.getElementById("arC").addEventListener("click",()=>Arena.skipSeg());
 window.addEventListener("resize",()=>Arena.resize());
 
-/* ---------- victory hanabi (Japanese-style fireworks) ---------- */
+/* ---------- animated winner on a pile of all other contestants ---------- */
 const FX=(()=>{
-  const COLORS={beni:"#ff5a6e",kin:"#ffd27a",yamabuki:"#ffb340",wakatake:"#8fe39a",fuji:"#b996ff",sora:"#86ccff",sakura:"#ffb6d3",gin:"#eef3ff",daidai:"#ff8a4a"};
-  const C=COLORS;
-  // original motifs (outline points, normalized to radius ~1)
-  function sampleLine(pts,n){ const out=[]; let L=0; const seg=[];
-    for(let i=0;i<pts.length-1;i++){ const d=Math.hypot(pts[i+1][0]-pts[i][0],pts[i+1][1]-pts[i][1]); seg.push(d); L+=d; }
-    for(let i=0;i<pts.length-1;i++){ const k=Math.max(1,Math.round(n*seg[i]/L));
-      for(let j=0;j<k;j++){ const t=j/k; out.push([pts[i][0]+(pts[i+1][0]-pts[i][0])*t,pts[i][1]+(pts[i+1][1]-pts[i][1])*t]); } }
-    return out; }
-  const circle=(n,r=1,cx=0,cy=0,a0=0,a1=Math.PI*2)=>Array.from({length:n},(_,i)=>{const a=a0+(a1-a0)*i/(a1-a0>=6.28?n:n-1);return [cx+r*Math.cos(a),cy+r*Math.sin(a)];});
-  const dot=(x,y)=>[[x,y],[x+.05,y],[x-.05,y],[x,y+.05],[x,y-.05]];
-  const MOTIFS=[
-    {name:"heart",col:[C.beni,C.sakura],pts:()=>Array.from({length:70},(_,i)=>{const t=i/70*Math.PI*2;return [16*Math.sin(t)**3/17,-(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t))/17];})},
-    {name:"star",col:[C.kin,C.yamabuki],pts:()=>{const v=[];for(let i=0;i<=10;i++){const a=-Math.PI/2+i*Math.PI/5,r=i%2?0.42:1;v.push([r*Math.cos(a),r*Math.sin(a)]);}return sampleLine(v,70);}},
-    {name:"sakura",col:[C.sakura,C.gin],pts:()=>Array.from({length:90},(_,i)=>{const t=i/90*Math.PI*2;const p=Math.abs(Math.cos(2.5*t));const notch=1-0.18*Math.exp(-Math.pow((p-1)*14,2));const r=(0.35+0.65*Math.pow(p,0.7))*notch;return [r*Math.cos(t-Math.PI/2),r*Math.sin(t-Math.PI/2)];}).concat(circle(8,.12))},
-    {name:"smile",col:[C.kin,C.beni],pts:()=>circle(56).concat(dot(-.35,-.22),dot(.35,-.22),circle(14,.48,0,.02,.35,Math.PI-.35))},
-    {name:"chick",col:[C.yamabuki,C.daidai],pts:()=>circle(54,1,0,.05).concat(sampleLine([[.92,-.12],[1.38,.02],[.92,.18]],10),dot(.42,-.25),sampleLine([[-.2,-.92],[-.05,-1.28],[.05,-.95],[.22,-1.22],[.25,-.9]],10))},
-    {name:"cat",col:[C.fuji,C.gin],pts:()=>circle(50,.9,0,.1).concat(sampleLine([[-.78,-.35],[-.62,-1.08],[-.22,-.72]],12),sampleLine([[.22,-.72],[.62,-1.08],[.78,-.35]],12),dot(-.33,.0),dot(.33,0),sampleLine([[-.12,.32],[0,.42],[.12,.32]],5))},
-    {name:"moon",col:[C.kin,C.gin],pts:()=>circle(44,1,0,0,Math.PI*.35,Math.PI*1.65).concat(circle(30,.78,.32,0,Math.PI*.55,Math.PI*1.45).reverse())},
-  ];
-  let host,cv,ctx,W,H,S,dpr,parts=[],sched=[],clock=0,last=0,raf=0,done=null,ending=false,quiet=0;
-  const rnd=(a,b)=>a+Math.random()*(b-a), pick=a=>a[Math.floor(Math.random()*a.length)];
-  let PX=3;
-  function resize(){ W=host.clientWidth; H=host.clientHeight; S=Math.min(W,H)/700+.35; PX=Math.max(3,Math.round(Math.min(W,H)/130));
-    cv.width=Math.ceil(W/PX); cv.height=Math.ceil(H/PX); ctx.setTransform(1/PX,0,0,1/PX,0,0); ctx.imageSmoothingEnabled=false; }
-  const dotAt=(x,y,n)=>ctx.fillRect(Math.round(x/PX)*PX,Math.round(y/PX)*PX,PX*n,PX*n);
-  function P(o){ parts.push(Object.assign({age:0,px:o.x,py:o.y,drag:.4,g:150,size:1.6,trail:false,twinkle:false,change:null},o)); }
-  function hex(c,a){ const n=parseInt(c.slice(1),16); return `rgba(${n>>16},${n>>8&255},${n&255},${a})`; }
-  function flash(x,y,r,c){ P({kind:"flash",x,y,vx:0,vy:0,life:.22,r,color:c,g:0}); }
-  // burst types
-  const B={
-    kiku(x,y,c1,c2,big=1){ const n=Math.round(80*big), sp=250*S*big; flash(x,y,90*S*big,c1);
-      for(let i=0;i<n;i++){ const a=i/n*Math.PI*2+rnd(-.04,.04), v=sp*rnd(.92,1.05);
-        P({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rnd(1.7,2.1),color:c1,change:c2,trail:true,twinkle:true,size:1.7,drag:.33,g:120}); } },
-    botan(x,y,c1){ const n=70, sp=220*S; flash(x,y,70*S,c1);
-      for(let i=0;i<n;i++){ const a=i/n*Math.PI*2, v=sp*rnd(.95,1.03);
-        P({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rnd(1.3,1.6),color:c1,size:2.4,drag:.3,g:110}); } },
-    yae(x,y,c1,c2){ B.kiku(x,y,c1,null,1.05);
-      for(let i=0;i<36;i++){ const a=i/36*Math.PI*2, v=120*S;
-        P({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:1.5,color:c2,size:2.2,drag:.3,g:100,twinkle:true}); } },
-    yanagi(x,y){ const n=56, sp=175*S; flash(x,y,80*S,C.kin);
-      for(let i=0;i<n;i++){ const a=i/n*Math.PI*2+rnd(-.05,.05), v=sp*rnd(.85,1.05);
-        P({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rnd(3,3.6),color:C.kin,trail:true,size:1.4,drag:.18,g:85,glitter:true,fadeTrail:true}); } },
-    senrin(x,y,c){ B.botan(x,y,c);
-      for(let k=0;k<7;k++) at(clock+rnd(.45,.85),()=>{ const a=rnd(0,Math.PI*2), r=rnd(60,120)*S, cx=x+Math.cos(a)*r, cy=y+Math.sin(a)*r+30*S, cc=pick([C.gin,C.kin,C.sakura,C.sora]);
-        flash(cx,cy,26*S,cc);
-        for(let i=0;i<16;i++){ const b=i/16*Math.PI*2, v=70*S*rnd(.9,1.1); P({x:cx,y:cy,vx:Math.cos(b)*v,vy:Math.sin(b)*v,life:rnd(.7,.95),color:cc,size:1.6,drag:.25,g:60,twinkle:true}); } }); },
-    pixel(x,y,key){ const sp=sprite(key), ic=sp.icon(); if(!ic) return B.kiku(x,y,C.kin,C.beni); const sp2=150*S*1.1, hc=(ic.length-1)/2; flash(x,y,90*S,"#ffffff");
-      ic.forEach((row,gy)=>row.forEach((c,gx)=>{ if(!c)return;
-        const n=parseInt(c.slice(1),16); let r=n>>16,g=n>>8&255,b=n&255; const lum=.3*r+.59*g+.11*b;
-        if(lum<80){ r=r*.35+150*.65; g=g*.35+160*.65; b=b*.35+205*.65; }
-        const col="#"+[r,g,b].map(v=>Math.round(v).toString(16).padStart(2,"0")).join("");
-        P({x,y,vx:(gx-hc)/hc*sp2,vy:(gy-hc)/hc*sp2,life:2.8,color:col,size:1.5,drag:.32,g:24,twinkle:true,reveal:true}); })); },
-    shape(x,y,m){ m=m||pick(MOTIFS); const pts=m.pts(), sp=150*S, tilt=rnd(-.18,.18), cs=Math.cos(tilt), sn=Math.sin(tilt); flash(x,y,80*S,m.col[0]);
-      pts.forEach(([px,py],i)=>{ const rx=px*cs-py*sn, ry=px*sn+py*cs;
-        P({x,y,vx:rx*sp,vy:ry*sp,life:2.6,color:i%9===0?m.col[1]:m.col[0],size:2.3,drag:.32,g:28,twinkle:true,reveal:true}); });
-      return m; },
-  };
-  function at(t,fn){ sched.push({t,fn}); }
-  function shell(t,x,yTop,burst){ // launch a rising shell, burst at apex
-    at(t,()=>{ const sx=x*W, ty=yTop*H, h=H*1.02-ty, g=260*S, v=Math.sqrt(2*g*h);
-      P({kind:"shell",x:sx,y:H*1.02,vx:rnd(-8,8),vy:-v,g,drag:0,life:v/g,color:"#ffe2b0",size:1.8,trail:true,
-        onEnd:p=>burst(p.x,p.y)}); }); }
-  let avatarKey=null;
-  function program(){ const cols=[[C.beni,C.kin],[C.sora,C.gin],[C.fuji,C.sakura],[C.wakatake,C.kin],[C.daidai,C.gin]];
-    const m1=pick(MOTIFS), m2=pick(MOTIFS.filter(m=>m!==m1)), m3=pick(MOTIFS);
-    shell(0.0,.5,.30,(x,y)=>B.kiku(x,y,...pick(cols)));
-    shell(0.7,.25,.40,(x,y)=>B.botan(x,y,pick([C.beni,C.sora,C.wakatake])));
-    shell(1.1,.72,.34,(x,y)=>avatarKey?B.pixel(x,y,avatarKey):B.shape(x,y,m1));
-    shell(2.0,.42,.26,(x,y)=>B.yanagi(x,y));
-    shell(2.6,.70,.42,(x,y)=>B.yae(x,y,C.sora,C.beni));
-    shell(3.3,.30,.30,(x,y)=>B.shape(x,y,m2));
-    shell(3.9,.62,.28,(x,y)=>B.senrin(x,y,C.gin));
-    shell(4.7,.5,.30,(x,y)=>avatarKey?B.pixel(x,y,avatarKey):B.shape(x,y,m3));
-    shell(5.0,.2,.38,(x,y)=>B.kiku(x,y,...pick(cols),.9));
-    shell(5.2,.8,.36,(x,y)=>B.kiku(x,y,...pick(cols),.9));
-    shell(6.1,.5,.22,(x,y)=>B.yanagi(x,y));
-    shell(6.3,.28,.30,(x,y)=>B.yanagi(x,y));
-    shell(6.5,.74,.28,(x,y)=>B.yanagi(x,y));
+  const host=document.getElementById("fx"), canvas=host.querySelector("canvas"), ctx=canvas.getContext("2d");
+  const TAU=Math.PI*2, duration=6.8;
+  let W=0,H=0,scale=2,raf=0,last=0,time=0,done=null,active=false,win=null,losers=[],key=null,particles=[];
+  const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
+  const ease=x=>{x=clamp(x);return 1-(1-x)**3;};
+  const smooth=x=>{x=clamp(x);return x*x*(3-2*x);};
+  function resize(){
+    if(!active)return;
+    const r=host.getBoundingClientRect();
+    scale=Math.max(2,Math.min(3.5,(window.devicePixelRatio||1)*2));
+    W=Math.max(110,Math.round(r.width/scale)); H=Math.max(160,Math.round(r.height/scale));
+    canvas.width=W; canvas.height=H; ctx.imageSmoothingEnabled=false;
   }
-  function step(dt){
-    clock+=dt;
-    sched.sort((a,b)=>a.t-b.t); while(sched.length&&sched[0].t<=clock) sched.shift().fn();
-    // fade old trails
-    ctx.globalCompositeOperation="destination-out"; ctx.fillStyle=`rgba(0,0,0,${1-Math.pow(.0006,dt)})`; ctx.fillRect(0,0,W,H);
-    ctx.globalCompositeOperation="lighter";
-    const next=[];
-    for(const p of parts){
-      p.age+=dt; if(p.age>=p.life){ p.onEnd&&p.onEnd(p); continue; }
-      p.px=p.x; p.py=p.y;
-      const k=Math.pow(p.drag||1e-9,dt); if(p.drag){ p.vx*=k; p.vy*=k; }
-      p.vy+=p.g*dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
-      const r=p.age/p.life; let a=r<.7?1:1-(r-.7)/.3;
-      if(p.reveal&&p.age<.42) a*=.06+.94*Math.pow(p.age/.42,3);
-      if(p.twinkle&&r>.6&&Math.random()<.45) a*=.15;
-      const col=p.change&&r>.5?p.change:p.color;
-      if(p.kind==="flash"){ const gr=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r); gr.addColorStop(0,hex("#ffffff",.5*(1-r))); gr.addColorStop(.3,hex(col,.25*(1-r))); gr.addColorStop(1,hex(col,0));
-        ctx.fillStyle=gr; ctx.fillRect(p.x-p.r,p.y-p.r,p.r*2,p.r*2); next.push(p); continue; }
-      ctx.fillStyle=hex(col,a);
-      if(p.trail){ dotAt(p.x,p.y,1); dotAt((p.x+p.px)/2,(p.y+p.py)/2,1); }
-      else dotAt(p.x,p.y,p.size>=2.2&&r<.85?2:1);
-      if(p.kind==="shell"&&Math.random()<.6) P({x:p.x+rnd(-1.5,1.5),y:p.y,vx:rnd(-10,10),vy:rnd(10,40),life:rnd(.3,.6),color:"#ffcf8a",size:1,g:40,drag:.5});
-      if(p.glitter&&r>.35&&Math.random()<.08) P({x:p.x,y:p.y,vx:0,vy:20,life:rnd(.25,.5),color:"#fff2c8",size:1.1,g:30,drag:.5,twinkle:true});
-      next.push(p);
+  function rect(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h));}
+  function text(s,x,y,size,color,stroke,align="center"){
+    ctx.save();ctx.font=`900 ${Math.round(size)}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
+    ctx.textAlign=align;ctx.textBaseline="middle";ctx.lineJoin="round";
+    if(stroke){ctx.lineWidth=Math.max(3,size*.22);ctx.strokeStyle=stroke;ctx.strokeText(s,x,y);}
+    ctx.fillStyle=color;ctx.fillText(s,x,y);ctx.restore();
+  }
+  function star(x,y,s,col){rect(x-s*.16,y-s,s*.32,s*2,col);rect(x-s,y-s*.16,s*2,s*.32,col);}
+  function picture(p,x,y,w,rotation=0,squash=0){
+    if(!p||!p.avatar)return;
+    const a=sprite(p.avatar);if(!a.ready())return;
+    ctx.save();ctx.translate(Math.round(x),Math.round(y));ctx.rotate(rotation);
+    ctx.scale(1+squash*.21,1-squash*.26);
+    // 角色原圖採用透明 PNG，完整保留該局所選的實際角色
+    const im=a.img,ratio=im.naturalWidth/im.naturalHeight;
+    let iw=w,ih=w;if(ratio>1)ih=w/ratio;else iw=w*ratio;
+    ctx.drawImage(im,-iw/2,-ih/2,iw,ih);ctx.restore();
+  }
+  function paintBackground(t,cx,ground,u){
+    const bg=ctx.createLinearGradient(0,0,0,H);bg.addColorStop(0,"#10162f");bg.addColorStop(.58,"#343568");bg.addColorStop(1,"#c86f55");ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+    // 會緩慢旋轉的金色勝利光束
+    ctx.save();ctx.translate(cx,ground-u*1.20);ctx.rotate(t*.07);
+    for(let i=0;i<18;i++){
+      const a=i/18*TAU;ctx.beginPath();ctx.moveTo(0,0);
+      ctx.arc(0,0,Math.max(W,H)*1.8,a,a+.085);
+      ctx.closePath();ctx.fillStyle=i%2?"rgba(255,198,95,.14)":"rgba(255,246,183,.23)";ctx.fill();
     }
-    parts=next;
+    ctx.restore();
+    // 像素看臺和揮舞小旗的觀眾
+    rect(0,H*.57,W,H*.23,"#252e55");
+    for(let row=0;row<4;row++)for(let i=0;i<Math.ceil(W/8);i++){
+      const x=i*8+(row%2?3:0),y=H*.59+row*H*.047;
+      rect(x,y,4,3,["#596396","#d5a362","#677b8c","#e2a5a4"][((i*7+row*3)%4)]);
+    }
+    rect(0,ground+u*.49,W,H-ground-u*.49,"#825064");
+    rect(0,ground+u*.48,W,3,"#ffcb73");
+    for(let i=0;i<9;i++)rect(i*W/9,ground+u*.54,Math.max(2,u*.045),2,"#b27160");
   }
-  let hero=null,hctx=null;
-  function drawHero(){ if(!avatarKey||!hero)return; const sp=sprite(avatarKey); hctx.clearRect(0,0,240,300); if(!sp.ready())return;
-    const im=sp.img, ph=clock*5, j=Math.abs(Math.sin(ph)), air=j*64, land=j<.18?(.18-j)/.18:0;
-    const B=190, r=im.naturalWidth/im.naturalHeight; let w=r>1?B:B*r, h=r>1?B/r:B; w*=1+land*.14; h*=1-land*.12+(j>.4?j*.05:0);
-    hctx.fillStyle="rgba(0,0,0,.3)"; hctx.beginPath(); hctx.ellipse(120,290,62*(1-j*.45),7*(1-j*.4),0,0,6.283); hctx.fill();
-    hctx.imageSmoothingEnabled=true; hctx.drawImage(im,120-w/2,288-h-air,w,h);
-    if(j>.55){ hctx.fillStyle="#ffd27a"; const t=clock*3; for(let i=0;i<5;i++){ const an=t+i*1.257, rx=120+Math.cos(an)*(w*.62), ry=288-h*.55-air+Math.sin(an)*h*.5; const q=i%2?4:6;
-      hctx.fillRect(rx-q/2|0,ry-q*1.5|0,q,q*3); hctx.fillRect(rx-q*1.5|0,ry-q/2|0,q*3,q); } } }
-  function loop(ts){ const dt=Math.min(.05,(ts-(last||ts))/1000); last=ts;
-    step(dt); drawHero();
-    if(!sched.length&&!parts.length){ if(++quiet>20) return finish(); } else quiet=0;
-    raf=requestAnimationFrame(loop); }
-  function finish(){ if(ending)return; ending=true; cancelAnimationFrame(raf); host.classList.remove("on");
-    setTimeout(()=>{ host.hidden=true; parts=[]; sched=[]; const cb=done; done=null; cb&&cb(); },700); }
-  function start(cb,key){ avatarKey=key||null;
-    host=document.getElementById("fx"); cv=host.querySelector("canvas"); ctx=cv.getContext("2d");
-    const reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
-    done=cb; ending=false; parts=[]; sched=[]; clock=0; last=0; quiet=0;
-    host.hidden=false; resize(); requestAnimationFrame(()=>host.classList.add("on"));
-    hero=document.getElementById("fxHero"); hctx=hero.getContext("2d"); hctx.imageSmoothingEnabled=false; hero.hidden=!avatarKey;
-    if(avatarKey){ const hw=Math.round(Math.min(W*.42,H*.24*.8,170)); hero.style.width=hw+"px"; hero.style.height=Math.round(hw*1.25)+"px"; clock=0; drawHero(); }
-    if(reduce){ // still image: a few shapes, no motion
-      ctx.globalCompositeOperation="lighter"; [.3,.7].forEach((fx,i)=>{ const m=pick(MOTIFS); m.pts().forEach(([x,y])=>{ ctx.fillStyle=hex(m.col[0],.9); dotAt(fx*W+x*90*S,.35*H+y*90*S,2); }); });
-      setTimeout(finish,2600); return; }
-    program(); raf=requestAnimationFrame(loop);
+  function layout(n,r,ground,cx){
+    if(n===1)return [{x:cx,y:ground-r*.12}];
+    if(n===2)return [{x:cx-r*.64,y:ground-r*.07},{x:cx+r*.64,y:ground-r*.07}];
+    return [{x:cx-r*.76,y:ground-r*.04},{x:cx+r*.76,y:ground-r*.04},{x:cx,y:ground-r*.72}];
   }
-  return {start,finish,resize:()=>{ if(host&&!host.hidden) resize(); }};
+  function drawLosers(t,cx,ground,r){
+    const positions=layout(losers.length,r,ground,cx);
+    const piledTop=losers.length===3?ground-r*1.65:ground-r*.96;
+    losers.forEach((p,i)=>{
+      const pos=positions[i]; const launch=i*.23;
+      const a=ease((t-launch)/.74);
+      const fromLeft=i%2===0;
+      const sx=fromLeft?-r*2.2:W+r*2.2;
+      const startY=ground-r*2.3-i*r*.35;
+      const shake=t>2.65&&t<3.15?Math.sin((t-2.65)*42+i)*r*.055:0;
+      const bounce=t>=2.8?Math.sin((t-2.8)*13+i*.9)*Math.exp(-(t-2.8)*1.4)*r*.12:0;
+      const x=sx+(pos.x-sx)*a+shake;
+      const y=startY+(pos.y-startY)*a+bounce;
+      const rot=(fromLeft?-.5:.5)*(1-a)+(i%2?-.16:.16)*a;
+      picture(p,x,y,r*1.82,rot,Math.sin((t-launch)*9)*.08*(1-a)+Math.abs(bounce/r));
+      // 頭上旋轉的小星星，呈現搞笑暈眩效果
+      if(a>.9){for(let j=0;j<2;j++){
+        const phase=t*3+i+j*Math.PI,xx=x+Math.cos(phase)*r*.37;
+        const yy=y-r*.75+Math.sin(phase)*r*.12;
+        star(xx,yy,r*.045,j%2?"#fff2b0":"#ffcb66");
+      }}
+    });
+    return piledTop;
+  }
+  function flag(x,y,r,t){
+    const poleX=x+r*.42, top=y-r*.75;
+    rect(poleX,top,Math.max(2,r*.055),r*.96,"#33233c");
+    rect(poleX+2,top,Math.max(2,r*.035),r*.96,"#fff0ac");
+    const wave=Math.round(Math.sin(t*8)*r*.075);
+    ctx.fillStyle="#fbe2a0";ctx.beginPath();ctx.moveTo(poleX+3,top+1);ctx.lineTo(poleX+r*.80+wave,top+r*.08);ctx.lineTo(poleX+r*.72-wave,top+r*.52);ctx.lineTo(poleX+3,top+r*.47);ctx.fill();
+    ctx.fillStyle="#df4e5b";ctx.beginPath();ctx.moveTo(poleX+4,top+3);ctx.lineTo(poleX+r*.73+wave,top+r*.11);ctx.lineTo(poleX+r*.67-wave,top+r*.46);ctx.lineTo(poleX+4,top+r*.40);ctx.fill();
+    text("★",poleX+r*.35,top+r*.23,r*.26,"#ffea90",null);
+  }
+  function drawParticles(t,u){
+    if(t<2.82)return;
+    const a=clamp((t-2.82)/.5);
+    for(const p of particles){
+      const dt=t-2.82+p.delay;if(dt<0)continue;
+      const x=(p.x*W+Math.sin(dt*p.swing+p.seed)*u*.08+W)%W;
+      const y=((p.y*H+dt*p.speed*u)% (H+u*.2))-u*.12;
+      ctx.save();ctx.globalAlpha=a;ctx.translate(x,y);ctx.rotate(dt*p.spin+p.seed);
+      rect(-p.size/2,-p.size/2,p.size,p.size*.64,p.color);ctx.restore();
+    }
+  }
+  function draw(t){
+    const u=Math.min(W*.72,H*.66,235), cx=W/2, ground=H*.72, r=Math.min(W*.235,H*.16,54);
+    ctx.clearRect(0,0,W,H);
+    const hit=t>=2.68&&t<3.14?Math.sin((t-2.68)*65)*(1-(t-2.68)/.46)*r*.075:0;
+    ctx.save();ctx.translate(hit,hit*.45);
+    paintBackground(t,cx,ground,u);
+    // 地面投影跟著冠軍落地縮放
+    ctx.beginPath();ctx.ellipse(cx,ground+r*.57,r*1.85,r*.16,0,0,TAU);
+    ctx.fillStyle="rgba(17,17,38,.52)";ctx.fill();
+    const pileTop=drawLosers(t,cx,ground,r);
+    const endY=pileTop-r*.82;
+    let heroY;
+    if(t<1.55)heroY=-r*2.2;
+    else if(t<2.72){const a=clamp((t-1.55)/1.17);heroY=(-r*2.2)+(endY+r*2.2)*a-Math.sin(a*Math.PI)*r*.47;}
+    else {const dt=t-2.72;heroY=endY-Math.abs(Math.sin(dt*10))*Math.exp(-dt*1.3)*r*.36;}
+    const landed=clamp((t-2.69)/.38);
+    // 冠軍入場前閃亮的落點和落地噴出的塵土
+    if(t>=2.66&&t<3.6){const a=(t-2.66)/.94;
+      for(let i=0;i<12;i++){
+        const angle=(i/12)*Math.PI, xx=cx+Math.cos(angle)*a*r*2.0, yy=ground+r*.2-Math.sin(angle)*a*r*.75;
+        rect(xx,yy,Math.max(2,r*.12)*(1-a*.55),Math.max(2,r*.09)*(1-a*.55),i%2?"#f4cf9e":"#fff0c4");
+      }
+    }
+    picture(win,cx,heroY,r*2.5,Math.sin(t*5)*.028*landed, t>2.68?Math.max(0,Math.sin((t-2.68)*15))*Math.exp(-(t-2.68)*3)*.24:0);
+    if(t>3.15){
+      flag(cx,heroY,r,t);
+      for(let i=0;i<5;i++){
+        const a=t*1.6+i*TAU/5;
+        star(cx+Math.cos(a)*r*1.2,heroY+Math.sin(a)*r*.82,r*.065,i%2?"#fff4b3":"#ffd36b");
+      }
+    }
+    ctx.restore();
+    drawParticles(t,u);
+    // 以中文冠軍名稱顯示真正贏家，不會固定寫「你贏了」
+    if(t>2.92){
+      const show=ease((t-2.92)/.45);
+      ctx.save();ctx.globalAlpha=show;ctx.translate(W/2,Math.max(28,H*.15)-(1-show)*20);
+      ctx.rotate(Math.sin(t*3)*.012);
+      text("WIN!",0,0,Math.min(W*.17,54),"#ffe17c","#382440");
+      text("★  冠軍誕生  ★",0,Math.min(W*.115,40),Math.min(W*.046,16),"#fff7d9","#67374b");
+      ctx.restore();
+      const avatarName=ROSTER_BY[key]?.name||win?.name||"冠軍";
+      const winnerName=win?.id===0?`你・${avatarName}`:avatarName;
+      const font=Math.min(W*.070,25);
+      rect(W*.08,H*.83,W*.84,H*.09,"#10152e");
+      rect(W*.08,H*.83,W*.84,Math.max(2,H*.008),"#f9ca65");
+      text(`${winnerName} 獲勝！`,W/2,H*.875,font,"#fff2c9","#382440");
+    }
+  }
+  function tick(stamp){
+    if(!active)return;
+    const dt=last?Math.min(.06,(stamp-last)/1000):0;last=stamp;time+=dt;
+    draw(time);
+    if(time>=duration){finish();return;}
+    raf=requestAnimationFrame(tick);
+  }
+  function finish(){
+    if(!active)return;active=false;cancelAnimationFrame(raf);
+    host.classList.remove("on");host.hidden=true;
+    const cb=done;done=null;cb&&cb();
+  }
+  function start(cb,avatar,winner,participants){
+    if(active){active=false;cancelAnimationFrame(raf);}
+    done=cb;win=winner||{id:0,name:"冠軍",avatar:avatar||"trex"};key=win.avatar||avatar||"trex";
+    losers=(participants||[]).filter(p=>p.id!==win.id).slice(0,3);
+    if(!losers.length&&S&&S.players)losers=S.players.filter(p=>p.id!==win.id).slice(0,3);
+    particles=Array.from({length:95},(_,i)=>({x:((i*67)%97)/97,y:((i*41)%89)/89,seed:i*1.7,delay:-(i%8)*.11,
+      speed:.13+(i%7)*.035,swing:1+(i%5)*.3,spin:(i%2?1:-1)*(1+i%4),size:2+i%3,
+      color:["#f9ca61","#f37d87","#88cefa","#b6eaad","#ddadf9"][i%5]}));
+    host.hidden=false;active=true;time=0;last=0;
+    resize();host.classList.add("on");draw(0);
+    const reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if(reduce){draw(5.4);setTimeout(()=>{if(active)finish();},2600);return;}
+    raf=requestAnimationFrame(tick);
+  }
+  return {start,finish,resize};
 })();
 document.getElementById("fx").addEventListener("click",()=>FX.finish());
 window.addEventListener("resize",()=>FX.resize());
-window.__fx=(k)=>FX.start(()=>{},k||null);
-window.__winTest=()=>endGame(me(),"測試");
+window.__fx=(k)=>FX.start(()=>{},k||me().avatar,me(),S.players);
+window.__winTest=(id=0)=>endGame(S.players[id]||me(),"測試");
 window.__opts=()=>JSON.stringify({o:S.opts,n:S.players.length,me:me().avatar,round:S.round});
 window.__arenaTest=(keys)=>{ S.players.forEach((p,i)=>{ if(keys[i]) p.avatar=keys[i]; }); const ids=S.players.map(p=>p.id); const rows=[];
   ids.forEach(a=>ids.forEach(d=>{ if(a!==d) rows.push({a,d,PA:5,PD:d%2?2:0,MA:4,MD:d%2?0:5,ph:d%2?3:5,mg:d%2?4:0}); }));
