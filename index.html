@@ -381,7 +381,7 @@ function resolveCombat(){
 function doCombat(){
   resolveCombat(); S.phase="combat"; save(); renderAll();
   if(S.fast){ setTimeout(()=>{ if(S.phase==="combat") startRound(); },0); return; }
-  if(ANIM()) Arena.play(S.combat,showCombat); else showCombat();
+  if(ANIM()&&S.opts.battle!=="off") Arena.play(S.combat,showCombat); else showCombat();
 }
 
 /* ---------- AI ---------- */
@@ -658,14 +658,17 @@ function showOver(){ const w=S.players[S.winner.id];
 function showSetup(prev){
   let pref={}; try{ pref=JSON.parse(localStorage.getItem("chicken-army-prefs")||"{}")||{}; }catch(e){}
   const o=Object.assign({opp:1,diff:"normal",each:false,jedi:false,mode:"anim",avatar:"random"},pref,prev||{});
+  if(!o.battle) o.battle=o.mode==="classic"?"off":"on";
+  o.mode="anim"; // 角色與勝利動畫一律啟用，只有戰鬥動畫可以開關
   if(o.avatar!=="random"&&!ROSTER_BY[o.avatar]) o.avatar="random";
   const saved=loadSaved(); const resumable=saved&&saved.phase!=="over"&&saved.phase!=="setup"&&saved.round>0;
   const seg=(name,vals)=>`<div class="seg" data-g="${name}">${vals.map(([v,l])=>`<button type="button" data-v="${v}" class="${String(o[name])===String(v)?"on":""}">${l}</button>`).join("")}</div>`;
   const avs=`<button type="button" class="avb${o.avatar==="random"?" on":""}" data-av="random"><span class="rnd">?</span>隨機</button>`+
     ROSTER.map(r=>`<button type="button" class="avb${o.avatar===r.key?" on":""}" data-av="${r.key}"><img src="${sprite(r.key).url}" alt="">${r.name}</button>`).join("");
   openModal(`<h2>全軍出雞・開新局</h2>
-   <h3>版本</h3>${seg("mode",[["anim","動畫版"],["classic","經典版"]])}
-   <div id="avWrap" ${o.mode==="anim"?"":"hidden"}><h3 style="margin-bottom:6px">選你的角色・電腦會隨機分配其他角色</h3><div class="avgrid" id="avGrid">${avs}</div></div>
+   <h3>戰鬥動畫</h3>${seg("battle",[["on","開"],["off","關"]])}
+   <div class="hint">關掉後每輪戰鬥直接顯示結算；勝利動畫一樣會播放。</div>
+   <div id="avWrap"><h3 style="margin-bottom:6px">選你的角色・電腦會隨機分配其他角色</h3><div class="avgrid" id="avGrid">${avs}</div></div>
    <h3>電腦對手人數</h3>${seg("opp",[[1,"1 位"],[2,"2 位"],[3,"3 位"]])}
    <h3>電腦難度</h3>${seg("diff",[["easy","簡單"],["normal","普通"],["hard","困難"]])}
    <div class="hint">簡單：隨便拿、隨便放。普通：每步挑當下最划算的。困難：會看誰快死、會搶你想要的牌。</div>
@@ -676,11 +679,11 @@ function showSetup(prev){
   sheet.querySelectorAll(".seg").forEach(sg=>sg.addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b)return;
     sg.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
     o[sg.dataset.g]=sg.dataset.g==="opp"?+b.dataset.v:b.dataset.v;
-    if(sg.dataset.g==="mode") document.getElementById("avWrap").hidden=o.mode!=="anim"; }));
+  }));
   document.getElementById("avGrid").addEventListener("click",e=>{ const b=e.target.closest(".avb"); if(!b)return;
     sheet.querySelectorAll(".avb").forEach(x=>x.classList.toggle("on",x===b)); o.avatar=b.dataset.av; });
   document.getElementById("bStart").onclick=()=>{ o.each=document.getElementById("vEach").checked; o.jedi=document.getElementById("vJedi").checked;
-    try{ localStorage.setItem("chicken-army-prefs",JSON.stringify({mode:o.mode,avatar:o.avatar,opp:o.opp,diff:o.diff})); }catch(e){}
+    try{ localStorage.setItem("chicken-army-prefs",JSON.stringify({mode:o.mode,battle:o.battle,avatar:o.avatar,opp:o.opp,diff:o.diff})); }catch(e){}
     token++; newGame(Object.assign({},o,{avatar:o.avatar==="random"?null:o.avatar})); closeModal(); startRound(); };
   const br=document.getElementById("bResume"); if(br) br.onclick=()=>{ token++; S=saved; S.fast=false; closeModal(); resume(); };
 }
