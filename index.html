@@ -951,15 +951,23 @@ const FX=(()=>{
     });
     return ground-pr*.74-pr*.55; // 小山頂端
   }
+  // 每個角色的拿旗位置（以冠軍大小 r 為單位、角色面向右）：有尾巴的用尾巴捲住，企鵝、貓頭鷹、翼龍用背後的翅膀拿
+  const FLAG={trex:[-1.0,.13],tri:[-1.05,.42],stego:[-1.05,.3],ptero:[-.88,-.33],penguin:[-.72,.12],owl:[-.72,.2],
+    fox:[-1.02,.25],blackcat:[-.93,.48],whitecat:[-.9,.47],tabby:[-1.02,.45],whitetabby:[-.95,.4],calico:[-.93,.32],
+    cowcat:[-1.0,.09],shiba:[-1.02,-.07],husky:[-.92,.42],golden:[-1.05,.5]};
   function flag(x,y,r,t,rise){
-    const poleX=x+r*.5, len=r*1.15*rise, top=y+r*.2-len;
-    rect(poleX,top,Math.max(2,r*.06),len,"#3a2618"); rect(poleX,top,Math.max(1,r*.025),len,"#8a5a32");
-    rect(poleX-r*.04,top-r*.08,r*.14,r*.1,"#ffd65a");
-    if(rise<.6)return;
-    const fw=r*.95, fh=r*.58, a=clamp((rise-.6)/.4), cols=8;
-    for(let i=0;i<cols;i++){ const fx=poleX+2+i*fw/cols, w=Math.sin(t*9-i*.8)*r*.07*(i/cols+.2);
-      rect(fx,top+w,fw/cols+1,fh*a,i===cols-1?"#b02a38":"#de3c4a"); rect(fx,top+w,fw/cols+1,Math.max(1,r*.05),"#f6c34a"); rect(fx,top+w+fh*a-Math.max(1,r*.05),fw/cols+1,Math.max(1,r*.05),"#f6c34a"); }
-    if(a>.8) crown(poleX+2+fw*.48,top+fh*.72+Math.sin(t*9-3.5)*r*.04,fw*.42);
+    const c=FLAG[key]||[-.9,.3], ax=x+c[0]*r, ay=y+c[1]*r;
+    const len=r*1.55*rise, ang=-.22+Math.sin(t*3)*.05; // 往背後斜斜地拿，旗面朝背後飄，不擋臉
+    ctx.save(); ctx.translate(ax,ay); ctx.rotate(ang);
+    rect(-r*.03,-len,Math.max(2,r*.06),len,"#3a2618"); rect(-r*.03,-len,Math.max(1,r*.025),len,"#8a5a32");
+    rect(-r*.07,-len-r*.08,r*.14,r*.1,"#ffd65a");
+    if(rise>=.6){
+      const fw=r*.85, fh=r*.52, a=clamp((rise-.6)/.4), cols=8, bw=Math.max(1,r*.05);
+      for(let i=0;i<cols;i++){ const fx=-r*.03-(i+1)*fw/cols, w=Math.sin(t*9-i*.8)*r*.08*((i+1)/cols+.15);
+        rect(fx,-len+w,fw/cols+1,fh*a,i===cols-1?"#b02a38":"#de3c4a"); rect(fx,-len+w,fw/cols+1,bw,"#f6c34a"); rect(fx,-len+w+fh*a-bw,fw/cols+1,bw,"#f6c34a"); }
+      if(a>.8) crown(-r*.03-fw*.5,-len+fh*.74+Math.sin(t*9-3)*r*.05,fw*.42);
+    }
+    ctx.restore();
   }
   function confetti(t,u,alpha){
     for(const p of particles){
@@ -1017,14 +1025,14 @@ const FX=(()=>{
         ctx.save();ctx.globalAlpha=.7*(1-a);ctx.fillStyle=i%3?"#f4dcb0":"#fff0d0";
         for(const [ox,oy] of [[0,0],[sz*.6,-sz*.3],[-sz*.5,-sz*.25]]){ ctx.beginPath();ctx.arc(cx+side*d+ox,fy2+r*.1-i*r*.05+oy-a*r*.3,sz*.55,0,TAU);ctx.fill(); }
         ctx.restore(); } }
+    // 4 揮旗勝利：旗子畫在冠軍後面，讓尾巴或翅膀蓋住旗桿底部
+    if(t>=T4) flag(hx,hy,r,t,ease((t-T4)/.5));
     // 冠軍本人
     picture(win,hx,hy,r*2.4,rot,sq,flip);
     // 3 站上頂端：頭頂的強調線
     if(t>=T3&&t<T5){ const p=.5+.5*Math.sin(t*10);
       for(let i=0;i<5;i++){ const an=-Math.PI*.85+i*Math.PI*.175, d=r*(1.25+p*.12);
         ctx.save();ctx.translate(hx+Math.cos(an)*d,hy-r*.25+Math.sin(an)*d);ctx.rotate(an+Math.PI/2);rect(-r*.06,-r*.18,r*.12,r*.36,i%2?"#ffe066":"#ffcf3a");ctx.restore(); } }
-    // 4 揮旗勝利
-    if(t>=T4) flag(hx,hy,r,t,ease((t-T4)/.5));
     if(t>=T4&&t<T5){ for(let i=0;i<5;i++){ const a=t*1.6+i*TAU/5; star(hx+Math.cos(a)*r*1.35,hy+Math.sin(a)*r*.9,r*.07,i%2?"#fff4b3":"#ffd36b"); } }
     // 5 皇冠落到頭上
     if(t>=T5+.35){ const a=clamp((t-T5-.35)/.45), b=backOut(a);
